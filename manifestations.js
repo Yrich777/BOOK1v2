@@ -13,7 +13,7 @@ window.Manifestations = (() => {
     varying vec2 uv;
     uniform sampler2D anatomy;
     uniform sampler2D marble;
-    uniform float time, reveal, kind, opacity;
+    uniform float time, reveal, kind, opacity, reach, orbPower;
     float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
     float fbm(vec2 p){float a=.5,n=0.;for(int i=0;i<4;i++){n+=a*noise(p);p=mat2(1.62,1.17,-1.17,1.62)*p+vec2(3.1,7.4);a*=.5;}return n;}
@@ -24,6 +24,12 @@ window.Manifestations = (() => {
       vec2 gathered=uv;
       if(kind<1.5)gathered.x=.5+(uv.x-.5)/(1.+(1.-reveal)*.75);
       vec2 warped=gathered+flow*(kind>1.5?.012:.07)+flow*(1.-reveal)*.08;
+      if(reach>=0.){
+        vec2 palm=vec2(.343,.738)+vec2(.075,-.04)*(1.-reach);
+        float hand=1.-smoothstep(.3,1.,length((uv-palm)/vec2(.19,.14)));
+        vec2 posed=uv-vec2(.075,-.04)*(1.-reach)*hand;
+        warped=mix(warped,posed+flow*.006,hand*smoothstep(.3,.7,reveal));
+      }
       if(kind>1.5&&kind<2.5){
         // Advected upward folds distort the assembling edge, then settle into
         // the creature's anatomy without freezing the translucent surface.
@@ -96,6 +102,15 @@ window.Manifestations = (() => {
         color=mix(dark,light,pow(smoothstep(.22,.77,n+detail*.16),1.9));
         color*=.58+detail*.63;
         color+=pow(fine,5.)*.34;
+        if(reach>=0.){
+          vec2 palm=vec2(.343,.738)+vec2(.075,-.04)*(1.-reach);
+          float lightFalloff=exp(-length((uv-palm)/vec2(.10,.065))*1.6);
+          float hand=1.-smoothstep(.3,1.,length((uv-palm)/vec2(.14,.095)));
+          color=mix(color,vec3(.23,.27,.30)+detail*.31,hand*.7*smoothstep(.6,1.,reveal));
+          color+=vec3(.49,.14,.85)*lightFalloff*orbPower;
+          alpha=min(.86,alpha*1.25);
+          alpha=mix(alpha,max(alpha,shape.a*.82*reveal),hand*smoothstep(.6,1.,reveal));
+        }
       }else{
         // A wavering flame contour arrives before the dense body. Both are
         // continuous fields: no glitter, confetti or straight reveal band.
@@ -165,7 +180,7 @@ window.Manifestations = (() => {
   gl.useProgram(program);
   const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
   const pos=gl.getAttribLocation(program,'position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-  const uniforms=Object.fromEntries(['anatomy','marble','time','reveal','kind','opacity'].map(n=>[n,gl.getUniformLocation(program,n)]));
+  const uniforms=Object.fromEntries(['anatomy','marble','time','reveal','kind','opacity','reach','orbPower'].map(n=>[n,gl.getUniformLocation(program,n)]));
   gl.uniform1i(uniforms.anatomy,0);gl.uniform1i(uniforms.marble,1);
   const textures=new WeakMap();
   function texture(im,unit){
@@ -181,16 +196,17 @@ window.Manifestations = (() => {
     return true;
   }
   let lost=false,previous=null;canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();lost=true;});
-  return {render(im,{time=0,reveal=1,kind=0,opacity=1,floor=null}={}){
+  return {render(im,{time=0,reveal=1,kind=0,opacity=1,floor=null,reach=-1,orbPower=0}={}){
     if(lost||!im?.naturalWidth)return null;
     const floorReady=Boolean(floor?.naturalWidth);
-    if(previous&&previous.im===im&&previous.time===time&&previous.reveal===reveal&&previous.kind===kind&&previous.opacity===opacity&&previous.floor===floor&&previous.floorReady===floorReady)return canvas;
+    if(previous&&previous.im===im&&previous.time===time&&previous.reveal===reveal&&previous.kind===kind&&previous.opacity===opacity&&previous.floor===floor&&previous.floorReady===floorReady&&previous.reach===reach&&previous.orbPower===orbPower)return canvas;
     const height=kind===3?384:448,width=Math.round(height*im.naturalWidth/im.naturalHeight);
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);}
     if(!texture(im,0)||!texture(floor?.naturalWidth?floor:im,1))return null;
     gl.uniform1f(uniforms.time,time/1000);gl.uniform1f(uniforms.reveal,reveal);gl.uniform1f(uniforms.kind,kind);gl.uniform1f(uniforms.opacity,opacity);
+    gl.uniform1f(uniforms.reach,reach);gl.uniform1f(uniforms.orbPower,orbPower);
     gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-    previous={im,time,reveal,kind,opacity,floor,floorReady};
+    previous={im,time,reveal,kind,opacity,floor,floorReady,reach,orbPower};
     return canvas;
   }};
  }

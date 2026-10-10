@@ -29,7 +29,7 @@
     fates: 'Даже знакомый двор хранит чужое присутствие.',
     read: 'Иная Москва остаётся по ту сторону страниц.'
   };
-  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-visitor'})) {
+  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-orb'})) {
     const im = new Image();
     im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'stone':'smoke');render();};
     im.onerror = () => { status.textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
@@ -127,7 +127,8 @@
     ctx.save(); ctx.globalAlpha = alpha;
     const phase=smooth((progress-(activeScene.id==='marble'?2.3:.35))/(activeScene.id==='marble'?4.6:5.6));
     const kind=im===images.golem?2:activeScene.id==='prologue'?0:1;
-    const living=window.Manifestations?.render(im,{time:still()?0:clock,reveal:reflection?1:phase,kind,opacity:1,floor:floorImage});
+    const spell=im===images.djinn?djinnSpell():{reach:-1,power:0};
+    const living=window.Manifestations?.render(im,{time:still()?0:clock,reveal:reflection?1:phase,kind,opacity:1,floor:floorImage,reach:spell.reach,orbPower:spell.power});
     if (reflection) {
       // Perspective-compressed inversion, sampled in strips for water distortion.
       const reflectedHeight = height * .44;
@@ -157,6 +158,38 @@
           ctx.drawImage(data.edge,x-width/2,foot-height,width,height);
         }
       }
+    }
+    ctx.restore();
+  }
+  function djinnSpell(){
+    const t=still()?0:clock*.001;
+    const reach=smooth((progress-2)/2.8),arrival=smooth((progress-4.1)/1.7);
+    const pulse=.34+.66*(.5+.5*Math.sin(t*.91+.48*Math.sin(t*.37)))**2;
+    return {reach,arrival,power:arrival*pulse,t};
+  }
+  function djinnOrb(x,foot,height){
+    if(!images.djinn?.naturalWidth)return;
+    const {reach,arrival,power,t}=djinnSpell();
+    if(!arrival)return;
+    const width=height*images.djinn.naturalWidth/images.djinn.naturalHeight;
+    // Same palm anchor and reach offset as the cloud material (UV Y is flipped).
+    const cx=x-width*.5+width*(.343+.075*(1-reach));
+    const cy=foot-height+height*(.262+.04*(1-reach));
+    const r=height*.024*(.88+.12*arrival);
+    ctx.save();ctx.globalCompositeOperation='screen';
+    gradient(cx,cy,r*4.1,r*3.8,'123,44,223',power*.46);
+    gradient(cx,cy+r*.8,r*2,r*1.4,'167,80,232',power*.31);
+    ctx.translate(cx,cy);ctx.globalAlpha=arrival*(.44+.56*power);
+    const sphere=ctx.createRadialGradient(-r*.23,-r*.28,r*.06,0,0,r);
+    sphere.addColorStop(0,'#efe1ff');sphere.addColorStop(.24,'#caa0ff');
+    sphere.addColorStop(.58,'#8b3ee3');sphere.addColorStop(.86,'#492080');sphere.addColorStop(1,'#7d3eb200');
+    ctx.fillStyle=sphere;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.clip();
+    // Uneven currents turn inside the sphere, without flashing or an orbit ring.
+    for(let i=0;i<4;i++){
+      ctx.save();ctx.rotate(t*(.13+i*.035)+i*1.8);
+      ctx.beginPath();ctx.ellipse(Math.sin(t*.43+i)*r*.2,0,r*(.35+i*.15),r*.8,i*.7,0,Math.PI*2);
+      ctx.strokeStyle=i%2?'#ead7ff':'#a861f5';ctx.lineWidth=r*(.065+i*.012);
+      ctx.globalAlpha=arrival*(.12+.23*power)*(.7+.3*Math.sin(t*.7+i));ctx.stroke();ctx.restore();
     }
     ctx.restore();
   }
@@ -361,7 +394,9 @@
       gradient(x, foot - height * .5, height * .48, height * .65, '4,10,17', presence * .5);
       shadow(images.djinn,x+18,foot-20,height*.95,presence*.36*(1-smooth((progress-2)/2)));
       entwinedFog(x,foot,height,presence,true);
-      figure(images.djinn, x, foot + Math.sin(clock * .0004) * 3, height, .85);
+      const floatingFoot=foot+(still()?0:Math.sin(clock*.0004)*3);
+      figure(images.djinn, x, floatingFoot, height, .85);
+      djinnOrb(x,floatingFoot,height);
       mist(x, foot, height, presence);
     } else if (id === 'prologue') {
       entwinedFog(889,628,225,presence);

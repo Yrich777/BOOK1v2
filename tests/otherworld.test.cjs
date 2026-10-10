@@ -51,6 +51,19 @@ function rig({reduced=false,living=false}={}){
     get masks(){return contexts.filter(c=>c.calls.some(call=>call.args[0]?.url?.includes('golem-bombo'))).length}
   };
 }
+test('the city orb waits for the reaching hand, shimmers, and disappears on return',()=>{
+  const r=rig({living:true});r.scene('city');r.button.click();r.advance(3300);
+  const latest=()=>r.materials.filter(m=>m.url.includes('djinn-orb')).at(-1);
+  assert.ok(latest().reach>0&&latest().reach<1,'the hand reaches while clouds form');
+  assert.equal(latest().orbPower,0,'the orb waits for the hand');
+  r.advance(4500);assert.equal(latest().reach,1);
+  const first=latest().orbPower;r.advance(1500);
+  assert.ok(first>0&&latest().orbPower>0);assert.notEqual(latest().orbPower,first);
+  r.button.click();r.advance(8000);assert.equal(r.main.paths.length,0);
+  const staticRig=rig({reduced:true,living:true});staticRig.scene('city');staticRig.button.click();
+  const still=staticRig.materials.at(-1);assert.equal(still.reach,1);assert.ok(still.orbPower>0);
+});
+
 test('the golem reflection exists before any body, then stone materializes in spatial slices',()=>{
   const r=rig();r.button.click();r.advance(1400);
   assert.ok(r.reflections.length>0,'reflection should already be visible');
