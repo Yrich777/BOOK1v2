@@ -13,7 +13,7 @@
   const noiseHashes = new Float64Array(16384).fill(NaN);
   const backgrounds = {};
   const floorImage=new Image();floorImage.src='assets/marble.webp';backgrounds.marble=floorImage;
-  const flameContours = new WeakMap();
+  const weaveContours = new WeakMap();
   const duration = 7.2;
   let activeScene = null, open = false, progress = 0, last = 0, clock = 0, encounterTime=0;
   let w = innerWidth, h = innerHeight, pixelRatio = 1;
@@ -24,12 +24,12 @@
     prologue: 'За порталом кто-то ждёт.',
     city: 'У города есть другие обитатели.',
     blade: 'Заклятие оставляет след даже в отражении.',
-    marble: 'Разводы мрамора стекаются в одно место. В тихом пламени проступает Бомбо.',
+    marble: 'Зелёный мрамор вспыхивает фиолетовым. Сиреневые нити сплетают Бомбо.',
     between: 'Стены перехода переливаются, словно грани иного мира.',
     fates: 'В свете старого фонаря просыпается феникс.',
     read: 'Иная Москва остаётся по ту сторону страниц.'
   };
-  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
+  for (const [key, file] of Object.entries({golem:'golem-woven',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
     const im = new Image();
     im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'stone':'smoke');render();};
     im.onerror = () => { status.textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
@@ -128,7 +128,7 @@
     const phase=im===images.golem?progress/duration:smooth((progress-.35)/5.6);
     const kind=im===images.golem?2:activeScene.id==='prologue'?0:1;
     const spell=im===images.djinn?djinnSpell():{reach:-1,power:0};
-    const living=window.Manifestations?.render(im,{time:still()?0:clock,reveal:reflection?1:phase,kind,opacity:1,floor:floorImage,reach:spell.reach,orbPower:spell.power});
+    const living=window.Manifestations?.render(im,{time:still()?0:clock,reveal:reflection&&im!==images.golem?1:phase,kind,opacity:1,floor:floorImage,reach:spell.reach,orbPower:spell.power});
     if (reflection) {
       // Perspective-compressed inversion, sampled in strips for water distortion.
       const reflectedHeight = height * .44;
@@ -245,122 +245,73 @@
     ctx.save();ctx.translate(.52,.63);ctx.rotate(twitch+(still()?0:Math.sin(t*2.1)*.014));ctx.translate(-.52,-.63);
     ctx.beginPath();trace(tail);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();ctx.restore();
   }
-  function assembleFromFloor(im,x,foot,height){
-    if(!im?.naturalWidth||still()||progress<=0)return;
-    const extinguish=1-smooth((encounterTime-duration)/1.1);
-    if(extinguish<=.001)return;
-    // These are connected, soft-edged sheets of shadow. A sampled alpha contour
-    // lets the rising tongues share the creature's anatomy instead of glittering
-    // around a finished photograph. The same stage coordinates work on mobile.
-    let contour=flameContours.get(im);
+  let marblePixels=null;
+  const weaveRoots=new Map();
+  function filamentRoots(x,foot,height,floorX,floorY,floorScale){
+    const key=[x,foot,height,floorX,floorY,floorScale].join(',');
+    if(weaveRoots.has(key))return weaveRoots.get(key);
+    if(!marblePixels&&floorImage.naturalWidth){
+      const c=document.createElement('canvas');c.width=384;c.height=256;
+      const context=c.getContext('2d',{willReadFrequently:true});context.drawImage(floorImage,0,0,384,256);
+      marblePixels=context.getImageData(0,0,384,256).data;
+    }
+    const roots=[],cx=(x-floorX)/floorScale,cy=(foot-floorY)/floorScale;
+    if(marblePixels)for(let py=Math.max(0,Math.floor((cy-16)/4));py<Math.min(256,(cy+100)/4);py+=2){
+      for(let px=Math.max(0,Math.floor((cx-200)/4));px<Math.min(384,(cx+200)/4);px+=3){
+        const index=(py*384+px)*4,r=marblePixels[index],g=marblePixels[index+1],b=marblePixels[index+2];
+        if(g>r+5&&g>b*.82&&g>24)roots.push({x:floorX+px*4*floorScale,y:floorY+py*4*floorScale});
+      }
+    }
+    const selected=Array.from({length:28},(_,i)=>roots.length?roots[Math.floor(((i*.61803398875)%1)*roots.length)]:
+      {x:x+Math.sin(i*2.399)*height*.23,y:foot+8+(i%5)*height*.009});
+    weaveRoots.set(key,selected);return selected;
+  }
+  function weaveFromFloor(im,x,foot,height,floorX,floorY,floorScale){
+    if(!im?.naturalWidth||still()||progress<=1.25)return;
+    const release=1-smooth((encounterTime-duration)/1.4);if(release<=0)return;
+    let contour=weaveContours.get(im);
     if(!contour){
-      const sample=document.createElement('canvas');sample.width=128;sample.height=192;
-      const sc=sample.getContext('2d',{willReadFrequently:true});sc.drawImage(im,0,0,128,192);
+      const c=document.createElement('canvas');c.width=128;c.height=192;
+      const sc=c.getContext('2d',{willReadFrequently:true});sc.drawImage(im,0,0,128,192);
       const pixels=sc.getImageData(0,0,128,192).data;
       contour={left:new Float32Array(192),right:new Float32Array(192)};
-      let previousLeft=.35,previousRight=.6;
       for(let row=0;row<192;row++){
-        let left=-1,right=-1;
-        for(let col=0;col<128;col++)if(pixels[(row*128+col)*4+3]>65){if(left<0)left=col;right=col;}
-        if(left>=0){previousLeft=left/128;previousRight=right/128;}
-        contour.left[row]=previousLeft;contour.right[row]=previousRight;
-      }
-      flameContours.set(im,contour);
+        let left=.35,right=.65;for(let col=0;col<128;col++)if(pixels[(row*128+col)*4+3]>90){left=col/128;break;}
+        for(let col=127;col>=0;col--)if(pixels[(row*128+col)*4+3]>90){right=col/128;break;}
+        contour.left[row]=left;contour.right[row]=right;
+      }weaveContours.set(im,contour);
     }
     const width=height*im.naturalWidth/im.naturalHeight,time=clock*.001;
-    const completion=smooth((progress-5.6)/(duration-5.6));
-    // Finish the head, then let every flame fade away over the next second.
-    const envelope=smooth(progress/.32)*(1-completion*.54)*extinguish*.55;
-    const fire=window.Manifestations?.render(im,{time:clock,reveal:progress/duration,kind:4,opacity:.62,floor:floorImage});
-    if(fire){
-      ctx.save();ctx.globalAlpha=smooth(progress/.2)*(.9-completion*.55)*extinguish;
-      ctx.drawImage(fire,x-width*.5,foot-height,width,height);ctx.restore();
-    }
-    const edgeAt=(side,v)=>{
-      const row=Math.max(0,Math.min(190,v*191)),i=Math.floor(row),f=row-i;
-      const field=side<0?contour.left:contour.right;
-      return x-width*.5+(field[i]*(1-f)+field[i+1]*f)*width;
-    };
-    const ribbon=(points,size,alpha,flame=false,seed=0)=>{
-      if(alpha<=.001||points.length<3)return;
-      const left=[],right=[];
-      for(let i=0;i<points.length;i++){
-        const p=points[i],before=points[Math.max(0,i-1)],after=points[Math.min(points.length-1,i+1)];
-        const dx=after.x-before.x,dy=after.y-before.y,length=Math.hypot(dx,dy)||1;
-        const u=i/(points.length-1),breathing=.5+.5*Math.sin(u*15-time*2.15+seed);
-        const taper=flame?Math.sin(Math.PI*u)**.72*(1-u)**.55:Math.sin(Math.PI*u)**.8;
-        const breadth=size*taper*(flame?.42+.58*breathing**1.4:.74+.26*breathing);
-        left.push({x:p.x-dy/length*breadth,y:p.y+dx/length*breadth});
-        right.push({x:p.x+dy/length*breadth,y:p.y-dx/length*breadth});
-      }
-      const perimeter=left.concat(right.reverse());
-      const trace=()=>{
-        ctx.beginPath();ctx.moveTo((perimeter[0].x+perimeter.at(-1).x)*.5,(perimeter[0].y+perimeter.at(-1).y)*.5);
-        for(let i=0;i<perimeter.length;i++){
-          const p=perimeter[i],next=perimeter[(i+1)%perimeter.length];
-          ctx.quadraticCurveTo(p.x,p.y,(p.x+next.x)*.5,(p.y+next.y)*.5);
-        }
-        ctx.closePath();
-      };
-      const start=points[0],end=points.at(-1),color=ctx.createLinearGradient(start.x,start.y,end.x,end.y);
-      color.addColorStop(0,'rgba(8,5,16,.28)');color.addColorStop(.32,'rgba(16,10,31,.91)');
-      color.addColorStop(.64,flame?'rgba(91,68,121,.76)':'rgba(35,24,52,.9)');
-      color.addColorStop(.86,flame?'rgba(144,113,164,.46)':'rgba(65,44,80,.68)');color.addColorStop(1,'rgba(105,72,144,0)');
-      ctx.globalAlpha=alpha;ctx.fillStyle=color;ctx.filter=`blur(${height*(flame?.0055:.012)}px)`;trace();ctx.fill();
-      ctx.globalAlpha=alpha*.48;ctx.filter=`blur(${height*.003}px)`;trace();ctx.fill();
-      // The sheen fills a folded sheet of smoke rather than outlining a
-      // glowing tube. Broad translucency and a tapered curl read as fire.
-      if(flame){
-        const glow=ctx.createLinearGradient(start.x,start.y,end.x,end.y);
-        glow.addColorStop(0,'rgba(114,75,143,0)');glow.addColorStop(.31,'rgba(148,111,175,.21)');
-        glow.addColorStop(.67,'rgba(165,139,188,.56)');glow.addColorStop(1,'rgba(125,86,165,0)');
-        ctx.globalCompositeOperation='screen';ctx.globalAlpha=alpha*.38;ctx.fillStyle=glow;ctx.filter=`blur(${height*.005}px)`;trace();ctx.fill();
-        ctx.globalCompositeOperation='source-over';
-      }
-    };
-    ctx.save();ctx.globalCompositeOperation='source-over';
-    const gathering=smooth((progress-.04)/3.8),floorStrength=envelope*(1-smooth((progress-4.6)/2.6)*.68);
-    for(let i=0;i<11;i++){
-      const side=i%2?-1:1,a=i*2.399,reach=height*(.55+(i%3)*.15);
-      const sx=x+side*reach,sy=foot+height*(.07+(i%4)*.063);
-      const root=x+side*width*(.07+(i%3)*.018);
-      const pulse=.5+.5*Math.sin(time*.76+a),head=clamp(.17+gathering*.83+(i-5)*.018),tail=Math.max(0,head-.72);
+    const rise=smooth((progress-1.25)/5.6),settled=smooth((progress-5.7)/1.5);
+    const envelope=smooth((progress-1.25)/.8)*(1-settled*.7)*release;
+    const light=window.Manifestations?.render(im,{time:clock,reveal:progress/duration,kind:4,opacity:.72});
+    if(light){ctx.save();ctx.globalAlpha=envelope;ctx.drawImage(light,x-width*.5,foot-height,width,height);ctx.restore();}
+    const roots=filamentRoots(x,foot,height,floorX,floorY,floorScale);
+    ctx.save();ctx.globalCompositeOperation='screen';
+    roots.forEach((root,i)=>{
+      const reach=clamp(rise+(i-14)*.004),seed=i*2.399,across=.10+.8*((i*.618)%1);
       const points=[];
-      for(let j=0;j<30;j++){
-        const q=tail+(head-tail)*j/29,bend=Math.sin(q*Math.PI)*(1-q);
-        points.push({x:sx+(root-sx)*q+Math.sin(q*8-time*.94+a)*height*.075*bend,
-          y:sy+(foot-sy)*q+Math.sin(q*7-time*.7+a)*height*.065*bend});
+      for(let j=0;j<=36;j++){
+        const u=j/36,v=1-reach*u,row=Math.min(191,Math.max(0,Math.round(v*191)));
+        const target=x-width*.5+width*(contour.left[row]+(contour.right[row]-contour.left[row])*across);
+        const braid=Math.sin(u*12.5-time*.85+seed)*width*.10*Math.sin(u*Math.PI);
+        points.push({x:root.x+(target-root.x)*smooth(u)+braid,y:root.y+(foot-height*reach-root.y)*u});
       }
-      ribbon(points,height*(.033+(i%3)*.009),floorStrength*(.57+.26*pulse),false,a);
-    }
-    const rise=smooth((progress-.12)/6.65),front=1-rise;
-    for(const side of [-1,1])for(let i=0;i<7;i++){
-      const seed=i*1.83+(side<0?2.4:.3),base=.99-(i%4)*.17;
-      const wake=smooth((base-front+.15)/.22);
-      if(wake<=0)continue;
-      const bottom=Math.min(.995,Math.max(base,front+.08));
-      const length=.17+.17*(.5+.5*Math.sin(time*.83+seed))+.06*(i%3);
-      const tip=Math.max(.004,bottom-length,front-.085);
-      if(bottom-tip<.02)continue;
-      const points=[];
-      for(let j=0;j<34;j++){
-        const u=j/33,v=bottom+(tip-bottom)*u;
-        const fold=Math.sin(u*Math.PI);
-        const curl=Math.sin(u*5.7-time*1.33+seed)*height*.037*fold+
-          Math.sin(u*11.6-time*2.17+seed)*height*.009*fold;
-        // Alternating tongues curl inside the forming mass; others spill past
-        // its silhouette, so the creature emerges from overlapping folds.
-        const inward=i%3===1?.11:.025,anchor=edgeAt(side,v)+side*width*(.025-inward);
-        points.push({x:anchor+side*curl,y:foot-height+v*height+Math.sin(u*7-time*1.7+seed)*height*.006*fold});
-      }
-      ribbon(points,height*(.018+(i%3)*.006),envelope*wake*(.61+.16*Math.sin(time*.7+seed)**2),true,seed);
-    }
-    ctx.restore();
+      const tip=points.at(-1),shimmer=.44+.56*Math.sin(time*1.5+seed)**2;
+      const color=ctx.createLinearGradient(root.x,root.y,tip.x,tip.y);
+      color.addColorStop(0,'rgba(141,64,228,.2)');color.addColorStop(.3,'rgba(180,109,246,.7)');
+      color.addColorStop(.84,'rgba(222,174,255,.8)');color.addColorStop(1,'rgba(198,140,251,0)');
+      ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
+      for(let j=1;j<points.length-1;j++){const p=points[j],next=points[j+1];ctx.quadraticCurveTo(p.x,p.y,(p.x+next.x)*.5,(p.y+next.y)*.5);}
+      ctx.strokeStyle=color;ctx.lineWidth=height*(.0008+(i%3)*.00035);ctx.globalAlpha=envelope*shimmer;
+      ctx.shadowColor='#bb7af3';ctx.shadowBlur=3;ctx.stroke();
+    });ctx.restore();
   }
+
   function golemSpell(x,foot,height){
-    if(progress<4.6)return;
+    if(progress<6.1)return;
     const width=height*images.golem.naturalWidth/images.golem.naturalHeight,left=x-width*.5,top=foot-height;
-    const awakening=smooth((progress-4.6)/2),eye=awakening*(still()?.42:.42+.18*Math.sin(clock*.0007)**2);
+    const awakening=smooth((progress-6.1)/1.1),eye=awakening*(still()?.42:.42+.18*Math.sin(clock*.0007)**2);
     ctx.save();ctx.globalCompositeOperation='screen';
     for(const [u,v] of [[.359,.098],[.410,.086]]){
       gradient(left+u*width,top+v*height,height*.013,height*.009,'133,68,212',eye*.72);
@@ -413,8 +364,8 @@
   function render() {
     ctx.clearRect(0, 0, w, h);
     if (!activeScene || !progress) return;
-    const presence = smooth(progress / 1.5), body = smooth((progress - 1.3) / 1.2);
-    const reflection = smooth((progress-.25) / 1.15), id = activeScene.id;
+    const presence = smooth(progress / 1.5), body = smooth((progress - 1.6) / 1.2);
+    const reflection = smooth((progress-2.4) / 2.8), id = activeScene.id;
     const courtyard=w<600&&id==='fates';
     const scale = courtyard?h*.52/1024:Math.max(w / 1536, h / 1024);
     const position = id === 'blade' ? (w < 600 ? .74 : .66) : id === 'fates' ? (courtyard?.72:.75) : id === 'prologue' && w < 600 ? .67 : .5;
@@ -429,8 +380,7 @@
       const floorX=mobile?((w-1536*floorScale*scale)*.75-ox)/scale:0;
       const floorY=mobile?-oy/scale:0;
       const figureWidth=stageHeight*(images.golem?.naturalWidth||960)/(images.golem?.naturalHeight||1440);
-      const fracture=!still()&&open&&encounterTime>duration+.9?encounterTime-duration-.9:-1;
-      const floor=window.Manifestations?.render(floorImage,{time:still()?0:clock,reveal:progress/duration,kind:3,opacity:presence,fracture,
+      const floor=window.Manifestations?.render(floorImage,{time:still()?0:clock,reveal:progress/duration,kind:3,opacity:presence,
         originX:(stageX+figureWidth*.085-floorX)/floorScale/1536,
         originY:1-(stageFoot-stageHeight*.018-floorY)/floorScale/1024,
         spread:figureWidth*.19/floorScale/1536});
@@ -438,17 +388,9 @@
       gradient(stageX, stageFoot - 140, 260, 380, '12,16,27', presence * .16);
       figure(images.golem, stageX, stageFoot, stageHeight, reflection * .48, true);
       gradient(stageX, stageFoot - 2, stageHeight * .27, 13, '0,3,9', body * .65);
-      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .70 : 0);
-      assembleFromFloor(images.golem,stageX,stageFoot,stageHeight);
+      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .84 : 0);
+      weaveFromFloor(images.golem,stageX,stageFoot,stageHeight,floorX,floorY,floorScale);
       golemSpell(stageX,stageFoot,stageHeight);
-      mist(stageX, stageFoot, stageHeight, presence*(1-smooth((progress-5.8)/1.4)*.72));
-      // Rings disturb the reflection before a body has materialized.
-      if (progress < duration) for (let i = 0; i < 3; i++) {
-        const p = clamp((progress - i * .42) / 4.8);
-        ctx.save(); ctx.translate(stageX, stageFoot + 14); ctx.scale(1, .17);
-        ctx.beginPath(); ctx.arc(0, 0, 30 + p * 250, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(188,172,217,${Math.sin(p * Math.PI) * .2})`; ctx.lineWidth = 1.3; ctx.stroke(); ctx.restore();
-      }
     } else if (id === 'city') {
       const x = mobile ? stageX : 1200, foot = mobile ? stageFoot : 780;
       const height = mobile ? stageHeight : 495;
@@ -565,6 +507,6 @@
     if(still()) {progress=open?duration:0; for(const p of portraits){p.blinkAt=-1000;drawPortrait(p,0);}render();}
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
   addEventListener('resize',resize);
-  floorImage.onload=render;
+  floorImage.onload=()=>{marblePixels=null;weaveRoots.clear();render();};
   sceneChanged(); resize(); requestAnimationFrame(frame);
 })();

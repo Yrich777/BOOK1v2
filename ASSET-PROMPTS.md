@@ -2,6 +2,12 @@
 
 Изображения созданы встроенным инструментом imagegen (без CLI/API). Для фигур использована настоящая прозрачность; альфа сохранена при оптимизации в WebP. Исходные иллюстрации и портреты сохранены. Внешность Бомбо и големши уточнена по восьми предоставленным страницам «про големов.pdf», затем образ Бомбо переработан по просьбам пользователя: текущая версия опирается на первый референс пользователя с цепями: обезображенное лицо, ржавая железная челюсть, ржавые цепи и реалистичная рваная одежда. Движущийся туман, мрамор и спектральное пламя рисуются кодом, изображения задают анатомию.
 
+## assets/golem-woven.webp
+
+Current golem. Built-in image_gen edit of golem-bombo-chained.webp, keeping pose and identity while refining photographic skin, ragged fabric and tendon detail. Genuine alpha preserved at 960 x 1440; larger openings in clothing expose the scene. Full prompt: [golem-woven.prompt.txt](assets/golem-woven.prompt.txt).
+
+The shader preserves the photographed material instead of flattening it into a grey painting. A shared interlaced filament field reveals the anatomy from the feet upward. Cloth and tendon regions retain varying opacity while the face stays readable. Source green veins in the floor are recolored in place; no source texture is displaced.
+
 ## Archived bridge encounter assets
 
 `assets/golem-bridge-atlas.webp` and `assets/gargoyle-climber.webp` were generated with the built-in image_gen tool using `golem-bombo-chained.webp` as the identity reference and `marble.webp` as the lighting reference. Full prompts: [bridge-creatures.prompt.txt](assets/bridge-creatures.prompt.txt). Alpha preserved during WebP optimization.
@@ -22,7 +28,7 @@ Current city apparition, edited with built-in imagegen from djinn-visitor.webp. 
 
 ## assets/golem-bombo-chained.webp
 
-Current floor-assembly asset, restored after the bridge-encounter experiment. Generated with built-in imagegen from the user's first chained portrait reference, followed by a focused edit of the clothing and rust. The final costume is torn woven wool and cotton with seams, folds, holes and loose threads; chains and iron fittings have dark pitted oxidation. Optimized to 960 × 1440 with genuine alpha preserved. Both full prompts are saved in [golem-bombo-chained.prompt.txt](assets/golem-bombo-chained.prompt.txt).
+Preserved identity reference, superseded by golem-woven.webp for the filament assembly. Generated with built-in imagegen from the user's first chained portrait reference, followed by a focused edit of the clothing and rust. The final costume is torn woven wool and cotton with seams, folds, holes and loose threads; chains and iron fittings have dark pitted oxidation. Optimized to 960 × 1440 with genuine alpha preserved. Both full prompts are saved in [golem-bombo-chained.prompt.txt](assets/golem-bombo-chained.prompt.txt).
 
 The shader preserves restrained rusty brown on the metal, adds dim violet eye and skin-vein shimmer aligned to the new anatomy, and keeps the body dark with sparse marble reflections. Translucent spectral flames assemble the figure from floor shadows, then fade out completely. The finished body is slightly transparent; intermittent branching glimmers propagate from both feet across the marble.
 

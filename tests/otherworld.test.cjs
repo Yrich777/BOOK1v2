@@ -50,7 +50,7 @@ function rig({reduced=false,living=false,width=1440,height=960}={}){
     pause(){classes.add('paused');observer()},
     get body(){return contexts[0].calls.filter(c=>/^brightness\(\.(84|56)\)/.test(c.filter))},
     get reflections(){return contexts[0].calls.filter(c=>c.filter.includes('saturate(.5) brightness(.9)'))},
-    get masks(){return contexts.filter(c=>c.calls.some(call=>call.args[0]?.url?.includes('golem-bombo'))).length}
+    get masks(){return contexts.filter(c=>c.calls.some(call=>call.args[0]?.url?.includes('golem-woven'))).length}
   };
 }
 test('the city orb waits for the reaching hand, shimmers, and disappears on return',()=>{
@@ -66,10 +66,11 @@ test('the city orb waits for the reaching hand, shimmers, and disappears on retu
   const still=staticRig.materials.at(-1);assert.equal(still.reach,1);assert.ok(still.orbPower>0);
 });
 
-test('marble gathering precedes the body, with no bridge creatures or storm',()=>{
+test('stationary marble recoloring precedes threads and body',()=>{
  const r=rig({living:true});r.button.click();r.advance(900);
  assert.ok(r.materials.some(m=>m.kind===3&&m.reveal>0&&m.reveal<1));
- assert.ok(r.reflections.length>0);
+ assert.equal(r.reflections.length,0);
+ assert.ok(!r.materials.some(m=>m.kind===4));
  assert.ok(!r.materials.some(m=>m.kind===2&&m.reveal<1));
  r.advance(2600);
  assert.ok(r.materials.some(m=>m.kind===2&&m.reveal>0&&m.reveal<1));
@@ -77,17 +78,17 @@ test('marble gathering precedes the body, with no bridge creatures or storm',()=
  assert.ok(!r.main.calls.some(c=>/bridge-atlas|gargoyle/.test(c.args[0]?.url||'')));
 });
 
-test('body and quieter flames share reveal progress, then fire extinguishes',()=>{
+test('body and filaments share the weave clock and free threads settle afterward',()=>{
  const r=rig({living:true});r.button.click();r.advance(3600);
  const body=r.materials.filter(m=>m.kind===2&&m.reveal<1).at(-1);
  const flame=r.materials.filter(m=>m.kind===4).at(-1);
  assert.equal(body.reveal,flame.reveal);assert.equal(body.time,flame.time);
- assert.equal(flame.opacity,.62);
- const draw=r.main.calls.find(c=>c.args[0]?.url?.includes('golem-bombo')&&c.filter==='none'&&c.args.length===5);
- assert.equal(draw.alpha,.70);
+ assert.equal(flame.opacity,.72);
+ const draw=r.main.calls.find(c=>c.args[0]?.url?.includes('golem-woven')&&c.filter==='none'&&c.args.length===5);
+ assert.equal(draw.alpha,.84);
  r.advance(5600);r.materials.length=0;r.advance(100);
  assert.ok(!r.materials.some(m=>m.kind===4));
- assert.ok(r.materials.some(m=>m.kind===3&&m.fracture>0));
+ assert.ok(r.materials.some(m=>m.kind===3&&m.reveal===1));
 });
 
 test('the tunnel uses living wall light without a distant character',()=>{
@@ -100,7 +101,7 @@ test('the tunnel uses living wall light without a distant character',()=>{
   r.button.click();assert.equal(r.main.calls.length,0);
 });
 
-test('floor gathering follows the golem position on desktop and mobile',()=>{
+test('floor recoloring follows the golem position on desktop and mobile',()=>{
  for(const [width,height] of [[1440,960],[390,844]]){
   const r=rig({living:true,width,height});r.button.click();r.advance(2300);
   const floor=r.materials.filter(m=>m.kind===3).at(-1);
@@ -133,14 +134,14 @@ test('returning clears each new encounter and rapid reversals replay the entranc
 test('page turning holds the entrance and moving to a new scene restarts it',()=>{
   const r=rig({living:true});r.page.style.display='block';r.button.click();r.advance(2500);
   assert.equal(r.main.calls.length,0);r.page.style.display='none';r.advance(8000);
-  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bombo-chained')));
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woven')));
   r.scene('between');assert.equal(r.main.calls.length,0);r.advance(800);assert.ok(r.materials.some(m=>m.kind===8));
 });
 
-test('reduced motion and pause show the translucent golem without flames',()=>{
+test('reduced motion and pause show the porous golem without moving threads',()=>{
   for(const reduced of [true,false]){
     const r=rig({reduced,living:true});if(!reduced)r.pause();r.button.click();
-    assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bombo-chained')&&c.args.length===5));
+    assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woven')&&c.args.length===5));
     assert.equal(r.materials.filter(m=>m.kind===2).at(-1).time,0);
     r.scene('between');assert.equal(r.materials.filter(m=>m.kind===8).at(-1).time,0);
     r.button.click();assert.equal(r.main.calls.length,0);
@@ -149,7 +150,7 @@ test('reduced motion and pause show the translucent golem without flames',()=>{
 
 test('the golem and tunnel still render without WebGL',()=>{
   const r=rig({reduced:true});r.button.click();
-  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bombo-chained')));
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woven')));
   r.scene('between');r.advance(3000);assert.ok(!r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woman')));
 });
 

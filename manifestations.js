@@ -32,16 +32,16 @@ window.Manifestations = (() => {
       inside=min(inside,min(1530.-p.x,1018.-p.y));
       return smoothstep(0.,12.,inside);
     }
-    // Body and fire share this exact field and clock: anatomy is revealed
-    // inside the moving tongues, rather than faded over an unrelated flame.
-    vec3 flameField(vec2 p,float age,float amount){
-      vec2 fq=p*vec2(10.2,3.7);
-      vec2 eddy=vec2(fbm(fq+vec2(0.,-age*.55)),fbm(fq*.73+vec2(age*.12,-age*.4)))-.5;
-      float density=fbm(fq+eddy*2.8+vec2(0.,-age*.64));
-      float fold=fbm(p*vec2(4.,5.)+vec2(age*.09,-age*.31));
-      float rise=.07+smoothstep(0.,.94,amount)*1.08;
-      float front=smoothstep(-.075,.13,rise-p.y+(fold-.5)*.26);
-      return vec3(density,fold,front);
+    // Two crossing families of thin strands supply both the luminous weave
+    // and the anatomy that accumulates behind it.
+    vec3 weaveField(vec2 p,float age,float amount){
+      float fold=fbm(p*vec2(5.,8.)+vec2(age*.06,-age*.13));
+      float bend=sin(p.y*17.-age*.85)*2.1+sin(p.y*31.+age*.7)*.55+fold*2.;
+      float a=1.-smoothstep(.08,.32,abs(sin(p.x*93.+bend)));
+      float b=1.-smoothstep(.06,.26,abs(sin(p.x*131.-bend*.65+p.y*9.)));
+      float rise=smoothstep(.18,.97,amount)*1.14;
+      float front=smoothstep(-.035,.08,rise-p.y+(fold-.5)*.07);
+      return vec3(max(a,b*.7),fold,front);
     }
     void main(){
       float t=time;
@@ -151,8 +151,8 @@ window.Manifestations = (() => {
       if(kind>1.5&&kind<2.5){
         // Advected upward folds distort the assembling edge, then settle into
         // the creature's anatomy without freezing the translucent surface.
-        vec2 flameFlow=vec2(fbm(q*1.8+vec2(0.,-t*.5))-.5,fbm(q*.9+vec2(t*.1,-t*.38))-.5);
-        warped=uv+flow*.004+flameFlow*vec2(.045,.035)*(1.-reveal);
+        vec2 weaveFlow=vec2(fbm(q*1.8+vec2(0.,-t*.5))-.5,fbm(q*.9+vec2(t*.1,-t*.38))-.5);
+        warped=uv+(flow*.003+weaveFlow*vec2(.018,.012)*(1.-reveal))*(1.-smoothstep(.80,.93,uv.y));
       }
       vec4 shape=texture2D(anatomy,warped);
       float soft=shape.a*.36;
@@ -165,81 +165,27 @@ window.Manifestations = (() => {
       float alpha;
       vec3 color;
       if(kind>3.5){
-        // Spectral fire is its own continuously advected volume. The anatomy
-        // guides where folds join, rather than supplying a photograph's color.
-        vec2 fireQ=uv*vec2(10.2,3.7);
-        vec2 eddy=vec2(fbm(fireQ+vec2(0.,-t*.55)),fbm(fireQ*.73+vec2(t*.12,-t*.4)))-.5;
-        vec3 field=flameField(uv,t,reveal);
-        float fireNoise=field.x,slowFold=field.y;
-        vec2 fireUV=uv+vec2(eddy.x*.065,eddy.y*.023-.032);
-        float core=texture2D(anatomy,fireUV).a;
-        float halo=texture2D(anatomy,fireUV+vec2(.029,.028)).a;
-        halo+=texture2D(anatomy,fireUV+vec2(-.029,.028)).a;
-        halo+=texture2D(anatomy,fireUV+vec2(.017,-.04)).a;
-        halo+=texture2D(anatomy,fireUV+vec2(-.017,-.04)).a;
-        halo*=.25;
-        float volume=core*.53+halo*.47;
-        float front=field.z;
-        float veil=smoothstep(.26,.65,fireNoise);
-        float filament=1.-smoothstep(.025,.115,abs(fireNoise-.51));
-        float edgeFlame=max(0.,halo-core*.6);
-        float pulse=.82+.18*sin(slowFold*7.+t*.73);
-        alpha=volume*front*(.11+veil*.43+filament*.2)*pulse;
-        alpha+=edgeFlame*front*filament*.32;
-        alpha*=smoothstep(0.,.035,reveal)*opacity;
-        // A single silver/violet range shimmers through sheets of cold fire.
-        color=mix(vec3(.10,.065,.17),vec3(.54,.40,.66),pow(veil,.7));
-        color+=vec3(.16,.135,.18)*filament*(.4+edgeFlame);
-        // Keep the completed face legible while fire still moves over the body.
-        alpha*=1.-smoothstep(.8,.96,uv.y)*smoothstep(.78,1.,reveal)*.72;
+        vec3 weave=weaveField(uv,t,reveal);
+        float filament=weave.x,front=weave.z;
+        float silhouette=texture2D(anatomy,uv).a;
+        float pulse=.55+.45*pow(.5+.5*sin(t*1.6-uv.y*19.+weave.y*4.),2.);
+        alpha=silhouette*front*filament*(.28+.4*pulse)*smoothstep(.17,.28,reveal)*opacity;
+        color=mix(vec3(.35,.13,.63),vec3(.80,.61,.98),pulse);
       }else if(kind>2.5){
-        // Advect the actual photographed veins inward over a broad floor area.
-        // Sampling progressively farther from the root draws those markings
-        // towards the feet, while the architecture above remains stationary.
+        // Recolor the stationary green veins in place. Both geometry and
+        // sampling remain fixed: no floor, wall or reflected image is moved.
         vec3 stone=texture2D(anatomy,uv).rgb;
         float floorMask=marbleFloor(uv);
-        vec2 center=vec2(originX,originY),delta=uv-center;
-        float distance=length(delta*vec2(1.,.65));
-        float vein=clamp((max(stone.g,stone.b)-stone.r)*5.+dot(stone,vec3(.21,.72,.07))*.24,0.,1.);
-        vec2 curl=vec2(-delta.y,delta.x)*sin(distance*18.-t*.35)*.12*reveal;
-        vec2 source=center+delta*(1.+reveal*1.45)+curl;
-        // Validate the source as well as the destination. Clamping only Y
-        // would drag columns and parapets into an otherwise valid floor pixel.
-        float sourceMask=marbleFloor(source);
-        vec3 movingStone=texture2D(anatomy,clamp(source,vec2(.005),vec2(.995))).rgb;
-        float movingVein=clamp((max(movingStone.g,movingStone.b)-movingStone.r)*5.+dot(movingStone,vec3(.21,.72,.07))*.5,0.,1.);
-        float pulse=.68+.32*sin(distance*32.+t*1.1+movingVein*4.);
-        float gathering=exp(-distance*5.);
-        float extent=1.-smoothstep(.57,.93,distance);
-        color=movingStone*.65+vec3(.14,.13,.17)*movingVein*pulse;
-        alpha=floorMask*sourceMask*extent*(.23+movingVein*.48+gathering*.12)*opacity*smoothstep(0.,.12,reveal)*(1.-smoothstep(.82,1.,reveal));
-        if(fracture>=0.){
-          float age=mod(fracture,9.8);
-          float burst=smoothstep(0.,.45,age)*(1.-smoothstep(3.8,5.1,age));
-          float cracks=0.,halo=0.;
-          for(int i=0;i<2;i++){
-            vec2 root=vec2(originX+(i==0?-spread:spread),originY);
-            vec2 delta=(uv-root)*vec2(1.,1.65);
-            float radius=length(delta);
-            float angle=atan(delta.y,delta.x);
-            // Fine branching paths bend with the photographed marble's veins.
-            float grain=fbm(uv*23.+stone.gb*1.8);
-            float branch=abs(sin(angle*5.+grain*3.7+radius*12.+float(i)*2.4));
-            float offshoot=abs(sin(angle*11.-radius*25.+grain*5.));
-            float line=min(branch,offshoot+.018);
-            float front=max(0.,age-float(i)*.23)*.155;
-            float arrive=smoothstep(-.016,.016,front-radius);
-            float trail=exp(-max(0.,front-radius)*7.);
-            float limit=1.-smoothstep(.43,.64,radius);
-            float mineral=.48+.52*smoothstep(.04,.35,vein);
-            float shimmer=.66+.34*sin(radius*74.-t*2.1+grain*6.);
-            cracks+=(1.-smoothstep(.012,.047,line))*arrive*trail*limit*mineral*shimmer;
-            halo+=(1.-smoothstep(.025,.13,line))*arrive*trail*limit*mineral;
-          }
-          float gleam=clamp(cracks,0.,1.);
-          color=mix(vec3(.25,.18,.39),vec3(.81,.75,.91),gleam);
-          alpha=(gleam*.88+halo*.15)*burst*floorMask*opacity;
-        }
+        vec2 center=vec2(originX,originY);
+        vec2 local=(uv-center)/vec2(.18,.095);
+        float area=1.-smoothstep(.65,1.35,length(local));
+        float vein=smoothstep(.012,.10,stone.g-stone.r)*smoothstep(-.025,.055,stone.g-stone.b*.82);
+        float awaken=smoothstep(.0,.29,reveal);
+        float radiance=smoothstep(.06,.43,reveal);
+        float shimmer=.54+.46*pow(.5+.5*sin(t*1.45+uv.x*34.+uv.y*27.),2.);
+        float luminance=dot(stone,vec3(.21,.72,.07));
+        color=vec3(.56,.25,.85)*(.28+luminance*1.25)+vec3(.20,.12,.25)*radiance*shimmer;
+        alpha=floorMask*area*vein*awaken*(.55+.39*radiance*shimmer)*opacity;
       }else if(kind<1.5){
         // Wisps entwine, drift through the silhouette and unravel at its edges.
         float gather=smoothstep(.0,.55,reveal);
@@ -263,23 +209,12 @@ window.Manifestations = (() => {
           alpha=mix(alpha,max(alpha,shape.a*.82*reveal),hand*smoothstep(.6,1.,reveal));
         }
       }else{
-        // A wavering flame contour arrives before the dense body. Both are
-        // continuous fields: no glitter, confetti or straight reveal band.
-        vec3 field=flameField(uv,t,reveal);
-        float flame=field.x;
-        float withinFlame=smoothstep(.33,.60,flame);
-        float matter=field.z*withinFlame*smoothstep(.12,.42,reveal);
-        matter=mix(matter,1.,smoothstep(.76,1.,reveal));
-        vec2 plumeUV=warped+vec2((flame-.5)*.018,-.035-(1.-reveal)*.035);
-        float plume=texture2D(anatomy,plumeUV).a;
-        float contour=clamp(soft-shape.a*.55,0.,1.);
-        float tongue=contour*.8+max(0.,plume-shape.a)*.8;
-        // The translucent contour gathers first; the dense anatomical detail
-        // catches up later, so the guest emerges from volume rather than dots.
-        float flameHeight=smoothstep(0.,.32,reveal)*1.18;
-        float tongueFront=smoothstep(-.12,.18,flameHeight-uv.y+(flame-.5)*.22);
-        float flameDensity=smoothstep(.21,.67,flame)*(.4+.6*n);
-        float vapor=(tongue+soft*.13)*tongueFront*flameDensity*(1.-smoothstep(.88,1.,reveal));
+        // The luminous weave accumulates into porous photographic anatomy.
+        vec3 field=weaveField(uv,t,reveal);
+        float strands=field.x;
+        float withinWeave=smoothstep(.06,.65,strands);
+        float settled=smoothstep(.22,.50,reveal-uv.y*.40);
+        float matter=field.z*mix(withinWeave,1.,settled)*smoothstep(.18,.34,reveal);
         vec2 stoneUV=vec2(.62+uv.x*.24+flow.x*.012,.045+uv.y*.20+flow.y*.009);
         vec3 stone=texture2D(marble,stoneUV).rgb;
         float stoneLum=dot(stone,vec3(.21,.72,.07));
@@ -287,8 +222,7 @@ window.Manifestations = (() => {
         float crawl=pow(.5+.5*sin(fbm(q*.85+flow)*17.-t*.62),12.);
         float gleam=veins*crawl*smoothstep(.34,.69,fine);
         float sourceLum=dot(shape.rgb,vec3(.21,.72,.07));
-        float lum=min(sourceLum,.43);
-        color=vec3(.035,.031,.042)+vec3(.49,.47,.51)*lum;
+        color=shape.rgb*.82+vec3(.012,.01,.02);
         // Desaturate the borrowed marble: isolated pearly reflections glide
         // over charcoal skin instead of coloring the entire body.
         float pearlescence=pow(.5+.5*sin(fbm(q*.9)*9.-t*.65),8.);
@@ -297,8 +231,7 @@ window.Manifestations = (() => {
         float face=smoothstep(.82,.93,uv.y);
         // Preserve photographed light and hollows of the peeling prosthetics;
         // flattening their luminance would turn the face back into a drawing.
-        vec3 facialLight=vec3(.029,.025,.034)+vec3(.62,.59,.635)*sourceLum;
-        color=mix(color,facialLight,face*.78);
+        color=mix(color,shape.rgb*.94+vec3(.008,.004,.015),face*.78);
         // Retain the photographed oxide on the iron while the cloth stays dark.
         float rust=smoothstep(.012,.08,shape.r-shape.g*1.3)*smoothstep(.004,.04,shape.g-shape.b*1.12);
         color=mix(color,shape.rgb*.63+vec3(.014,.009,.006),rust*.78);
@@ -322,8 +255,12 @@ window.Manifestations = (() => {
         eyes+=exp(-dot((uv-vec2(.410,.914))/vec2(.012,.005),(uv-vec2(.410,.914))/vec2(.012,.005)));
         float eyeShimmer=.7+.3*sin(t*1.27+2.)*sin(t*.61+1.);
         color=mix(color,vec3(.56,.17,.84)*eyeShimmer,clamp(eyes*.95,0.,1.)*smoothstep(.62,.9,reveal));
-        color+=vec3(.15,.135,.18)*vapor;
-        alpha=(shape.a*matter*(.89+.07*n)+vapor)*opacity;
+        float clothWeave=smoothstep(.35,.65,fbm(uv*vec2(21.,32.)));
+        float tendonWeave=smoothstep(.08,.5,field.x)*.6+sourceLum*.8;
+        float skin=max(leftHand,scrollHand);
+        float density=mix(.36+.56*clothWeave,.24+.62*clamp(tendonWeave,0.,1.),skin);
+        density=mix(density,.96,face);
+        alpha=shape.a*matter*density*opacity;
       }
       alpha*=smoothstep(0.,.035,uv.x)*smoothstep(0.,.035,1.-uv.x);
       gl_FragColor=vec4(color,alpha);
