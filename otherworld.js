@@ -438,7 +438,7 @@
       gradient(stageX, stageFoot - 140, 260, 380, '12,16,27', presence * .16);
       figure(images.golem, stageX, stageFoot, stageHeight, reflection * .48, true);
       gradient(stageX, stageFoot - 2, stageHeight * .27, 13, '0,3,9', body * .65);
-      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .62 : 0);
+      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .70 : 0);
       assembleFromFloor(images.golem,stageX,stageFoot,stageHeight);
       golemSpell(stageX,stageFoot,stageHeight);
       mist(stageX, stageFoot, stageHeight, presence*(1-smooth((progress-5.8)/1.4)*.72));

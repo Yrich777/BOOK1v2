@@ -84,7 +84,7 @@ test('body and quieter flames share reveal progress, then fire extinguishes',()=
  assert.equal(body.reveal,flame.reveal);assert.equal(body.time,flame.time);
  assert.equal(flame.opacity,.62);
  const draw=r.main.calls.find(c=>c.args[0]?.url?.includes('golem-bombo')&&c.filter==='none'&&c.args.length===5);
- assert.equal(draw.alpha,.62);
+ assert.equal(draw.alpha,.70);
  r.advance(5600);r.materials.length=0;r.advance(100);
  assert.ok(!r.materials.some(m=>m.kind===4));
  assert.ok(r.materials.some(m=>m.kind===3&&m.fracture>0));

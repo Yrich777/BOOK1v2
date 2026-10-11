@@ -17,6 +17,21 @@ window.Manifestations = (() => {
     float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
     float fbm(vec2 p){float a=.5,n=0.;for(int i=0;i<4;i++){n+=a*noise(p);p=mat2(1.62,1.17,-1.17,1.62)*p+vec2(3.1,7.4);a*=.5;}return n;}
+    // Conservative contour of walkable marble in the original illustration.
+    // It excludes the left columns, balustrades, right parapet and lanterns.
+    float marbleFloor(vec2 tex){
+      vec2 p=vec2(tex.x,1.-tex.y)*vec2(1536.,1024.);
+      float left=mix(1000.,905.,clamp((p.y-580.)/40.,0.,1.));
+      left=mix(left,760.,clamp((p.y-620.)/50.,0.,1.));
+      left=mix(left,595.,clamp((p.y-670.)/50.,0.,1.));
+      left=mix(left,480.,clamp((p.y-720.)/60.,0.,1.));
+      left=mix(left,435.,clamp((p.y-780.)/70.,0.,1.));
+      left=mix(left,475.,clamp((p.y-850.)/80.,0.,1.));
+      left=mix(left,535.,clamp((p.y-930.)/94.,0.,1.));
+      float inside=min(p.x-left,p.y-(p.x*.25+335.));
+      inside=min(inside,min(1530.-p.x,1018.-p.y));
+      return smoothstep(0.,12.,inside);
+    }
     // Body and fire share this exact field and clock: anatomy is revealed
     // inside the moving tongues, rather than faded over an unrelated flame.
     vec3 flameField(vec2 p,float age,float amount){
@@ -182,21 +197,22 @@ window.Manifestations = (() => {
         // Sampling progressively farther from the root draws those markings
         // towards the feet, while the architecture above remains stationary.
         vec3 stone=texture2D(anatomy,uv).rgb;
-        float horizon=.30+.165*exp(-pow((uv.x-.64)/.27,2.));
-        float floorMask=1.-smoothstep(horizon-.025,horizon+.015,uv.y);
+        float floorMask=marbleFloor(uv);
         vec2 center=vec2(originX,originY),delta=uv-center;
         float distance=length(delta*vec2(1.,.65));
         float vein=clamp((max(stone.g,stone.b)-stone.r)*5.+dot(stone,vec3(.21,.72,.07))*.24,0.,1.);
         vec2 curl=vec2(-delta.y,delta.x)*sin(distance*18.-t*.35)*.12*reveal;
         vec2 source=center+delta*(1.+reveal*1.45)+curl;
-        float sourceHorizon=.30+.165*exp(-pow((source.x-.64)/.27,2.));
-        vec3 movingStone=texture2D(anatomy,clamp(source,vec2(.005),vec2(.995,sourceHorizon-.02))).rgb;
+        // Validate the source as well as the destination. Clamping only Y
+        // would drag columns and parapets into an otherwise valid floor pixel.
+        float sourceMask=marbleFloor(source);
+        vec3 movingStone=texture2D(anatomy,clamp(source,vec2(.005),vec2(.995))).rgb;
         float movingVein=clamp((max(movingStone.g,movingStone.b)-movingStone.r)*5.+dot(movingStone,vec3(.21,.72,.07))*.5,0.,1.);
         float pulse=.68+.32*sin(distance*32.+t*1.1+movingVein*4.);
         float gathering=exp(-distance*5.);
         float extent=1.-smoothstep(.57,.93,distance);
         color=movingStone*.65+vec3(.14,.13,.17)*movingVein*pulse;
-        alpha=floorMask*extent*(.23+movingVein*.48+gathering*.12)*opacity*smoothstep(0.,.12,reveal)*(1.-smoothstep(.82,1.,reveal));
+        alpha=floorMask*sourceMask*extent*(.23+movingVein*.48+gathering*.12)*opacity*smoothstep(0.,.12,reveal)*(1.-smoothstep(.82,1.,reveal));
         if(fracture>=0.){
           float age=mod(fracture,9.8);
           float burst=smoothstep(0.,.45,age)*(1.-smoothstep(3.8,5.1,age));
@@ -264,7 +280,7 @@ window.Manifestations = (() => {
         float tongueFront=smoothstep(-.12,.18,flameHeight-uv.y+(flame-.5)*.22);
         float flameDensity=smoothstep(.21,.67,flame)*(.4+.6*n);
         float vapor=(tongue+soft*.13)*tongueFront*flameDensity*(1.-smoothstep(.88,1.,reveal));
-        vec2 stoneUV=vec2(fract(.18+uv.x*.59+flow.x*.05+t*.004),.015+uv.y*.43+flow.y*.02);
+        vec2 stoneUV=vec2(.62+uv.x*.24+flow.x*.012,.045+uv.y*.20+flow.y*.009);
         vec3 stone=texture2D(marble,stoneUV).rgb;
         float stoneLum=dot(stone,vec3(.21,.72,.07));
         float veins=clamp(abs(stone.g-stone.r)*2.+abs(stone.b-stone.r)*1.4,0.,1.);
@@ -272,10 +288,12 @@ window.Manifestations = (() => {
         float gleam=veins*crawl*smoothstep(.34,.69,fine);
         float sourceLum=dot(shape.rgb,vec3(.21,.72,.07));
         float lum=min(sourceLum,.43);
-        color=vec3(.035,.031,.042)+vec3(.4,.385,.415)*lum;
+        color=vec3(.035,.031,.042)+vec3(.49,.47,.51)*lum;
         // Desaturate the borrowed marble: isolated pearly reflections glide
         // over charcoal skin instead of coloring the entire body.
-        color+=vec3(.29,.30,.32)*gleam*(.28+stoneLum*.38);
+        float pearlescence=pow(.5+.5*sin(fbm(q*.9)*9.-t*.65),8.);
+        color+=vec3(.35,.36,.39)*gleam*(.28+stoneLum*.38);
+        color+=vec3(.07,.065,.095)*pearlescence*(.4+sourceLum);
         float face=smoothstep(.82,.93,uv.y);
         // Preserve photographed light and hollows of the peeling prosthetics;
         // flattening their luminance would turn the face back into a drawing.
@@ -289,7 +307,8 @@ window.Manifestations = (() => {
         float vascular=fbm(uv*vec2(37.,52.)+flow*.3);
         float veinLine=1.-smoothstep(.009,.036,abs(vascular-.49));
         float handVeins=max(leftHand,scrollHand)*veinLine*shape.a*smoothstep(.57,.88,reveal);
-        color+=vec3(.45,.10,.72)*handVeins*(.65+.22*sin(t*.74+n*6.));
+        float veinPulse=.35+.65*pow(.5+.5*sin(t*1.27+uv.y*16.+n*3.),2.);
+        color+=vec3(.61,.15,.91)*handVeins*veinPulse;
         // The generated purple tracery identifies the actual remaining skin.
         // Its slow shimmer stays registered to the peeling face and neck.
         float headSkin=1.-smoothstep(.65,1.,length((uv-vec2(.392,.923))/vec2(.072,.058)));
@@ -297,7 +316,7 @@ window.Manifestations = (() => {
         float violetInk=smoothstep(.023,.115,shape.b-max(shape.r*.97,shape.g*1.22));
         float skinVeins=max(max(headSkin,neckSkin)*violetInk,headSkin*veinLine*.22)*smoothstep(.60,.94,reveal);
         float venousShimmer=.42+.58*pow(.5+.5*sin(t*1.1+uv.y*17.+n*2.),2.);
-        color+=vec3(.47,.11,.72)*skinVeins*venousShimmer;
+        color+=vec3(.64,.16,.95)*skinVeins*venousShimmer;
         // Violet lights flicker softly within the skeletal orbital hollows.
         float eyes=exp(-dot((uv-vec2(.359,.902))/vec2(.012,.005),(uv-vec2(.359,.902))/vec2(.012,.005)));
         eyes+=exp(-dot((uv-vec2(.410,.914))/vec2(.012,.005),(uv-vec2(.410,.914))/vec2(.012,.005)));
