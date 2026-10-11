@@ -161,7 +161,7 @@ function sceneMagic(t){
  if(current===3)mapped(()=>{const mask=materialMask('marble','stone');if(mask){const shadows=document.body.classList.contains('world-open');ec.globalAlpha=shadows?.025+.045*pulse():.16+.25*pulse();ec.filter=shadows?'saturate(0) brightness(.7)':`hue-rotate(${Math.sin(t*.00035)*38}deg)`;ec.drawImage(mask,0,0);ec.filter='none'}
  [[1173,543],[1374,545],[1098,547],[645,429]].forEach(([x,y],i)=>spark(x,y,22,.18*pulse(i),'192,143,255'));
  });
- if(current===4)mapped(()=>{const mask=materialMask('rasta-interworld-tunnel','tunnel');if(mask){ec.globalAlpha=.18+.25*pulse();ec.drawImage(mask,0,0);ec.save();ec.beginPath();const y=(t*.08)%1200-150;ec.rect(590,y,485,130);ec.clip();ec.globalAlpha=.4;ec.drawImage(mask,0,0);ec.restore()}});
+
  if(current===5)mapped(()=>{[[991,120],[1050,102]].forEach(([x,y])=>{spark(x,y,9,.3+.45*pulse());spark(x,y,2.5,.55+.3*pulse())});},.75);
  ec.restore();
 }

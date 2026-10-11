@@ -19,6 +19,59 @@ window.Manifestations = (() => {
     float fbm(vec2 p){float a=.5,n=0.;for(int i=0;i<4;i++){n+=a*noise(p);p=mat2(1.62,1.17,-1.17,1.62)*p+vec2(3.1,7.4);a*=.5;}return n;}
     void main(){
       float t=time;
+      if(kind>9.5){
+        vec2 p=vec2(uv.x,1.-uv.y),offset=vec2(0.);
+        float exertion=(1.-reach)*sin(t*3.1)*.024;
+        float wing=(1.-smoothstep(.36,.52,p.y))*smoothstep(.11,.27,abs(p.x-.5));
+        offset.x+=(p.x-.5)*wing*(exertion+.018*sin(t*1.4));
+        offset.y+=wing*.006*sin(t*1.1+p.x*4.);
+        float forearm=smoothstep(.48,.64,p.y)*(1.-smoothstep(.83,.96,p.y));
+        offset.x+=forearm*.008*sin(t*2.7+p.x*10.)*(1.-reach*.85);
+        float tail=smoothstep(.87,.96,p.x)*smoothstep(.3,.5,p.y);
+        offset.y+=tail*.008*sin(t*2.2+p.y*6.);
+        vec4 creature=texture2D(anatomy,uv+offset);
+        float eyes=smoothstep(.04,.20,creature.b-max(creature.r*.9,creature.g*1.3));
+        float face=1.-smoothstep(.05,.15,length((p-vec2(.33,.37))*vec2(1.,1.3)));
+        creature.rgb+=vec3(.18,.035,.27)*eyes*face*(.55+.45*sin(t*.9)*sin(t*.9));
+        gl_FragColor=creature;return;
+      }
+      if(kind>8.5){
+        vec2 p=vec2(uv.x,1.-uv.y);
+        vec3 stone=texture2D(anatomy,uv).rgb;
+        float sky=smoothstep(.56,.66,p.x)*(1.-smoothstep(.50,.66,p.y));
+        float light=max(stone.r,max(stone.g,stone.b));
+        sky*=smoothstep(.12,.36,light)*smoothstep(-.04,.06,stone.b-stone.r);
+        float clouds=fbm(p*vec2(7.,10.)+vec2(t*.025,t*.013));
+        float front=smoothstep(.1,.95,reveal);
+        vec3 cloud=mix(vec3(.018,.027,.05),vec3(.11,.09,.17),clouds);
+        float strike=pow(max(0.,sin(t*.51+1.1)),28.)*smoothstep(.2,.5,reveal);
+        float boltX=.82+.019*sin(p.y*43.)+.011*sin(p.y*107.);
+        float bolt=exp(-abs(p.x-boltX)*1700.)*(1.-smoothstep(.29,.39,p.y))*smoothstep(.055,.085,p.y);
+        float fork=exp(-abs(p.x-(boltX+.32*(p.y-.19)))*1800.)*smoothstep(.18,.20,p.y)*(1.-smoothstep(.30,.34,p.y));
+        cloud+=vec3(.44,.30,.72)*strike*(bolt+fork*.6+exp(-abs(p.x-boltX)*40.)*.07);
+        gl_FragColor=vec4(cloud,sky*(.56+.32*clouds)*front*opacity);return;
+      }
+      if(kind>7.5){
+        vec2 p=vec2(uv.x,1.-uv.y)*vec2(1536.,1024.);
+        vec3 original=texture2D(anatomy,uv).rgb;
+        vec2 q=(p-vec2(942.,433.))/vec2(490.,460.);
+        float angle=atan(q.y,q.x),radius=length(q);
+        float fold=abs(sin(angle*4.+t*.065));
+        float facets=fbm(vec2(fold*5.,log(1.+radius*8.)*3.-t*.14));
+        float current=pow(.5+.5*sin(facets*15.+radius*8.-t*.67),3.);
+        float hue=.5+.5*sin(fold*4.+radius*5.-t*.24);
+        float stone=smoothstep(.035,.15,max(original.b-original.r*.8,original.g-original.r*.75));
+        float gold=smoothstep(.025,.16,original.r-original.b)*.55;
+        float walls=smoothstep(570.,700.,p.x)*(1.-smoothstep(460.,540.,p.y));
+        float personEdge=mix(1170.,1095.,smoothstep(100.,290.,p.y));
+        walls*=1.-smoothstep(personEdge-20.,personEdge,p.x);
+        float outer=smoothstep(1390.,1445.,p.x)*(1.-smoothstep(570.,640.,p.y));
+        walls=max(walls,outer);
+        vec3 color=mix(vec3(.12,.66,.64),vec3(.58,.25,.91),hue);
+        color=mix(color,vec3(.93,.68,.36),gold*.65);
+        float pulse=.55+.45*sin(t*.47+radius*6.)*sin(t*.47+radius*6.);
+        gl_FragColor=vec4(color,walls*max(stone,gold)*(.06+.48*current)*pulse*opacity);return;
+      }
       if(kind>6.5){
         vec2 p=vec2(uv.x,1.-uv.y);
         vec3 original=texture2D(anatomy,uv).rgb;
@@ -312,7 +365,7 @@ window.Manifestations = (() => {
  // Separate buffers avoid rebuilding the GPU drawing surface every time the
  // floor and the figure, which have different aspect ratios, are sampled.
  const figure=createMaterialRenderer(),floor=createMaterialRenderer(),fire=createMaterialRenderer();
- let blade,phoenix,portrait;
+ let blade,phoenix,portrait,tunnel,storm,gargoyle;
  if(!figure)return null;
- return {render(im,options={}){if(options.kind===7){if(portrait===undefined)portrait=createMaterialRenderer();return portrait?.render(im,options)||null;}if(options.kind===6){if(phoenix===undefined)phoenix=createMaterialRenderer();return phoenix?.render(im,options)||null;}if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
+ return {render(im,options={}){if(options.kind===10){if(gargoyle===undefined)gargoyle=createMaterialRenderer();return gargoyle?.render(im,options)||null;}if(options.kind===9){if(storm===undefined)storm=createMaterialRenderer();return storm?.render(im,options)||null;}if(options.kind===8){if(tunnel===undefined)tunnel=createMaterialRenderer();return tunnel?.render(im,options)||null;}if(options.kind===7){if(portrait===undefined)portrait=createMaterialRenderer();return portrait?.render(im,options)||null;}if(options.kind===6){if(phoenix===undefined)phoenix=createMaterialRenderer();return phoenix?.render(im,options)||null;}if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
 })();

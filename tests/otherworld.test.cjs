@@ -6,8 +6,8 @@ const path=require('node:path');
 
 // Run the actual renderer with a canvas spy and a controllable animation clock.
 // This verifies sequencing and cancellation without replacing the reveal logic.
-function rig({reduced=false,living=false}={}){
-  const scenes={marble:{id:'marble',append(){}},city:{id:'city',append(){}},fates:{id:'fates',append(){}}};
+function rig({reduced=false,living=false,width=1440,height=960}={}){
+  const scenes=Object.fromEntries(['marble','city','fates','between'].map(id=>[id,{id,append(){}}]));
   let active=scenes.marble,raf,time=0,observer;
   const classes=new Set(),label={},status={},announcement={},page={style:{display:'none'}};
   const button={attributes:{},addEventListener(_,f){this.click=f},setAttribute(k,v){this.attributes[k]=v},querySelector(){return label},getBoundingClientRect(){return {x:1050,y:46,width:230,height:48}}};
@@ -15,15 +15,17 @@ function rig({reduced=false,living=false}={}){
   function canvas(){
     const c={width:0,height:0,setAttribute(){}};
     const calls=[],paths=[],stack=[];let currentPath=[];
-    const x=new Proxy({filter:'none',globalAlpha:1,globalCompositeOperation:'source-over',calls,paths,
-      drawImage(...args){calls.push({args,filter:this.filter,alpha:this.globalAlpha})},
+    const x=new Proxy({filter:'none',globalAlpha:1,globalCompositeOperation:'source-over',calls,paths,transforms:[],
+      drawImage(...args){calls.push({args,filter:this.filter,alpha:this.globalAlpha,transforms:this.transforms.slice()})},
+      translate(...args){this.transforms.push(['translate',...args])},rotate(...args){this.transforms.push(['rotate',...args])},scale(...args){this.transforms.push(['scale',...args])},
       clearRect(){calls.length=0;paths.length=0;currentPath=[]},
       beginPath(){currentPath=[]},arc(...args){currentPath.push({kind:'arc',args})},
       bezierCurveTo(...args){currentPath.push({kind:'bezier',args})},
       quadraticCurveTo(...args){currentPath.push({kind:'quadratic',args})},
       closePath(){currentPath.push({kind:'close'})},
       fill(){paths.push({segments:currentPath.slice(),alpha:this.globalAlpha,composite:this.globalCompositeOperation})},
-      save(){stack.push({filter:this.filter,globalAlpha:this.globalAlpha,globalCompositeOperation:this.globalCompositeOperation})},
+      stroke(){paths.push({segments:currentPath.slice(),alpha:this.globalAlpha,composite:this.globalCompositeOperation})},
+      save(){stack.push({filter:this.filter,globalAlpha:this.globalAlpha,globalCompositeOperation:this.globalCompositeOperation,transforms:this.transforms.slice()})},
       restore(){Object.assign(this,stack.pop())},
       createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)}},
       getImageData(_,__,w,h){return {data:new Uint8ClampedArray(w*h*4).fill(185)}},
@@ -36,9 +38,9 @@ function rig({reduced=false,living=false}={}){
     querySelectorAll(){return []},createElement:canvas};
   class Image{constructor(){this.naturalWidth=960;this.naturalHeight=1440;this.width=960;this.height=1440;}set src(v){this.url=v;this.onload?.()}get src(){return this.url}}
   const materials=[];
-  const window=living?{Manifestations:{render(im,options){materials.push({url:im.url,...options});return {width:373,height:560}}}}:{};
+  const window=living?{Manifestations:{render(im,options){materials.push({url:im.url,...options});return {url:im.url,width:373,height:560}}}}:{};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../otherworld.js'),'utf8'),{
-    document,window,Image,innerWidth:1440,innerHeight:960,devicePixelRatio:1,
+    document,window,Image,innerWidth:width,innerHeight:height,devicePixelRatio:1,
     matchMedia:()=>({matches:reduced}),MutationObserver:class{constructor(f){observer=f}observe(){}},
     addEventListener(){},requestAnimationFrame(f){raf=f},Math,Float32Array
   });
@@ -51,17 +53,6 @@ function rig({reduced=false,living=false}={}){
     get masks(){return contexts.filter(c=>c.calls.some(call=>call.args[0]?.url?.includes('golem-bombo'))).length}
   };
 }
-test('the courtyard lantern ignites before a phoenix replaces the mist visitor',()=>{
-  const r=rig({living:true});r.scene('fates');r.button.click();r.advance(900);
-  assert.ok(!r.materials.some(m=>m.kind===6));
-  r.advance(5200);
-  assert.ok(r.materials.some(m=>m.kind===6&&m.url.includes('phoenix-filaments')));
-  assert.equal(r.main.calls.filter(c=>c.args[0]?.width===373).length,9,'two wings each have four exposure samples, plus a stable body');
-  assert.ok(!r.materials.some(m=>m.url.includes('golem-woman')),'no mist visitor should appear in the courtyard');
-  r.pause();assert.equal(r.main.calls.filter(c=>c.args[0]?.width===373).length,3,'paused wings have no blur trail');
-  r.button.click();assert.equal(r.main.calls.length,0);
-});
-
 test('the city orb waits for the reaching hand, shimmers, and disappears on return',()=>{
   const r=rig({living:true});r.scene('city');r.button.click();r.advance(3300);
   const latest=()=>r.materials.filter(m=>m.url.includes('djinn-orb')).at(-1);
@@ -75,82 +66,92 @@ test('the city orb waits for the reaching hand, shimmers, and disappears on retu
   const still=staticRig.materials.at(-1);assert.equal(still.reach,1);assert.ok(still.orbPower>0);
 });
 
-test('the golem reflection exists before any body, then stone materializes in spatial slices',()=>{
-  const r=rig();r.button.click();r.advance(1400);
-  assert.ok(r.reflections.length>0,'reflection should already be visible');
-  assert.equal(r.body.length,0,'body must not appear during the reflection-only phase');
-  r.advance(1700);
-  assert.ok(r.body.length>=48,'forming body must use distorted materialization slices');
-  r.advance(6000);
-  assert.equal(r.body.length,1,'settled body uses one undistorted image');
-});
-test('floor shadows gather as continuous curved ribbons without a shower of tiny particles',()=>{
-  const r=rig();r.button.click();let elapsed=0;
-  for(const stage of [1400,3800]){
-    r.advance(stage-elapsed);elapsed=stage;
-    const paths=r.main.paths.filter(p=>p.alpha>0);
-    assert.ok(paths.some(p=>p.segments.some(s=>s.kind==='close')&&p.segments.filter(s=>s.kind==='bezier'||s.kind==='quadratic').length>=2),
-      `the ${stage}ms assembly must contain a filled ribbon with smooth curved edges`);
-    assert.ok(!paths.some(p=>p.segments.some(s=>s.kind==='arc'&&s.args[2]<=4)),
-      `the ${stage}ms assembly must not emit filled tiny circles`);
-  }
-});
-test('returning hides the body before the reflection and eventually clears the world',()=>{
-  const r=rig();r.button.click();r.advance(9000);r.button.click();r.advance(3300);
-  assert.equal(r.body.length,0);assert.ok(r.reflections.length>0);
-  r.advance(1500);assert.equal(r.main.calls.length,0);assert.equal(r.button.attributes['aria-pressed'],'false');
-});
-test('page turning holds the reveal clock, and entering a new scene restarts its appearance',()=>{
-  const r=rig();r.page.style.display='block';r.button.click();r.advance(2500);
-  assert.equal(r.body.length,0);assert.equal(r.reflections.length,0);
-  r.page.style.display='none';r.advance(9000);assert.equal(r.body.length,1);
-  r.scene('city');assert.equal(r.body.length,0);r.advance(2500);assert.ok(r.body.length>=48);
+test('gargoyles precede the golem and the sky darkens before the climb',()=>{
+  const r=rig({living:true});r.button.click();r.advance(650);
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('gargoyle-climber')));
+  assert.ok(!r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
+  assert.ok(r.materials.some(m=>m.kind===9&&m.reveal>0&&m.reveal<1));
+  r.advance(1800);assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
+  assert.ok(!r.materials.some(m=>[2,3,4].includes(m.kind)),'the old floor assembly and flames are gone');
 });
 
-test('the living material assembles upwards and keeps flowing after the body has formed',()=>{
-  const r=rig({living:true});r.button.click();r.advance(1400);
-  assert.ok(r.materials.some(m=>m.kind===3),'the real floor should already shimmer');
-  assert.ok(r.materials.filter(m=>m.kind===2).every(m=>m.reveal===1),'only the reflection can exist initially');
-  r.advance(2400);
-  assert.ok(r.materials.some(m=>m.kind===2&&m.reveal>0&&m.reveal<1),'the body must use a partial spatial reveal');
-  r.advance(5500);const first=r.materials.at(-1);
-  r.advance(800);const next=r.materials.at(-1);
-  assert.equal(first.reveal,1);assert.equal(next.reveal,1);assert.ok(next.time>first.time,'the material keeps flowing once formed');
-});
-test('spectral flames form the golem, then extinguish before periodic floor fractures',()=>{
-  const r=rig({living:true});r.button.click();let elapsed=0,previousTime=-1;
-  for(const stage of [800,1400,6800,7500]){
-    r.materials.length=0;r.advance(stage-elapsed);elapsed=stage;
-    const flame=r.materials.filter(m=>m.kind===4).at(-1);
-    assert.ok(flame,`spectral flames should render at ${stage}ms`);
-    assert.ok(flame.opacity>0,`spectral flames should remain visible at ${stage}ms`);
-    assert.ok(flame.reveal>0&&flame.reveal<=1,'the flames follow the assembly progress');
-    assert.ok(flame.time>previousTime,'the flame material must keep moving');previousTime=flame.time;
-  }
-  r.advance(1600);r.materials.length=0;r.advance(100);
-  assert.ok(!r.materials.some(m=>m.kind===4),'flames must disappear after assembly');
-  const floor=r.materials.find(m=>m.kind===3);assert.ok(floor.fracture>0,'floor fractures start after assembly');
-  assert.ok(floor.originX>0&&floor.originX<1&&floor.originY>0&&floor.originY<.5);
-  r.materials.length=0;r.pause();assert.ok(!r.materials.some(m=>m.kind===4));
-  assert.equal(r.materials.filter(m=>m.kind===3).at(-1).fracture,-1,'pause disables propagating fractures');
-});
-test('rapid reversals do not leave an apparition stuck on the canvas',()=>{
-  const r=rig();r.button.click();r.advance(800);r.button.click();r.advance(250);r.button.click();r.advance(900);r.button.click();r.advance(2000);
-  assert.equal(r.main.calls.length,0);assert.equal(r.button.attributes['aria-pressed'],'false');
+test('the golem keeps a hand at the lantern and turns from profile to the viewer',()=>{
+  const r=rig({living:true});r.button.click();r.advance(3000);
+  const golem=()=>r.main.calls.filter(c=>c.args[0]?.url?.includes('golem-bridge-atlas'));
+  assert.ok(golem().every(c=>c.transforms.some(v=>v[0]==='translate'&&v[1]===1374&&v[2]===585)));
+  assert.ok(golem().some(c=>c.args[1]===768&&c.args[2]===0),'profile during climb');
+  r.advance(4100);
+  assert.ok(golem().some(c=>c.args[1]===768&&c.args[2]===512),'front gaze after climbing');
+  assert.ok(!golem().some(c=>c.args[1]===768&&c.args[2]===0),'profile no longer drawn');
 });
 
-test('opening again during return replays the complete assembly rather than restoring a finished body',()=>{
-  const r=rig({living:true});r.button.click();r.advance(9000);r.button.click();r.advance(250);
-  r.materials.length=0;r.button.click();assert.equal(r.main.calls.length,0);
-  r.advance(1400);assert.ok(r.reflections.length>0);assert.ok(r.materials.filter(m=>m.kind===2).every(m=>m.reveal===1));
-  r.advance(2900);assert.ok(r.materials.some(m=>m.kind===2&&m.reveal>0&&m.reveal<1));
+test('the tunnel uses living wall light without a distant character',()=>{
+  const r=rig({living:true});r.scene('between');r.button.click();r.advance(4500);
+  const light=r.materials.filter(m=>m.kind===8).at(-1);
+  assert.ok(light.url.includes('rasta-interworld-tunnel'));assert.equal(light.opacity,1);
+  assert.ok(!r.materials.some(m=>m.url.includes('golem-woman')));
+  r.advance(1000);assert.ok(r.materials.filter(m=>m.kind===8).at(-1).time>light.time);
+  r.pause();assert.equal(r.materials.filter(m=>m.kind===8).at(-1).time,0);
+  r.button.click();assert.equal(r.main.calls.length,0);
 });
-test('reduced motion and the pause control give a complete static scene and still allow return',()=>{
+
+test('the gripping hand remains registered to the lantern on desktop and mobile',()=>{
+  for(const [width,height] of [[1440,960],[390,844]]){
+    const r=rig({living:true,width,height});r.button.click();r.advance(2300);
+    const torso=r.main.calls.find(c=>c.args[0]?.url?.includes('golem-bridge-atlas')&&c.args[1]===0&&c.args[2]===0);
+    let x=720,y=75;
+    for(const [kind,a,b] of torso.transforms.slice().reverse()){
+      if(kind==='translate'){x+=a;y+=b;}
+      else if(kind==='scale'){x*=a;y*=b;}
+      else if(kind==='rotate'){const nx=x*Math.cos(a)-y*Math.sin(a);y=x*Math.sin(a)+y*Math.cos(a);x=nx;}
+    }
+    const mobile=width<600,s=mobile?height*.62/1024:Math.max(width/1536,height/1024);
+    assert.ok(Math.abs(x-((width-1536*s)*(mobile?.75:.5)+1374*s))<.001);
+    assert.ok(Math.abs(y-((mobile?0:(height-1024*s)*.5)+585*s))<.001);
+  }
+});
+
+test('the lantern brightens before the bird, with articulated head and tail',()=>{
+  const r=rig({living:true});r.scene('fates');r.button.click();r.advance(900);
+  assert.ok(!r.materials.some(m=>m.kind===6));r.advance(5500);
+  assert.ok(r.materials.some(m=>m.kind===6&&m.url.includes('phoenix-filaments')));
+  const draws=()=>r.main.calls.filter(c=>c.args[0]?.width===373);
+  assert.equal(draws().length,11,'eight wing exposures, body, head and tail');
+  const head=draws()[9].transforms,tail=draws()[10].transforms;r.advance(600);
+  assert.notDeepEqual(draws()[9].transforms,head);assert.notDeepEqual(draws()[10].transforms,tail);
+  assert.ok(!r.main.paths.some(p=>p.segments.some(s=>s.kind==='bezier')),'no light-line triangle before the bird');
+  r.pause();assert.equal(draws().length,5);r.button.click();assert.equal(r.main.calls.length,0);
+});
+
+test('returning clears each new encounter and rapid reversals replay the entrance',()=>{
+  for(const id of ['marble','between','fates']){
+    const r=rig({living:true});r.scene(id);r.button.click();r.advance(9000);r.button.click();r.advance(500);
+    r.button.click();assert.equal(r.main.calls.length,0);r.advance(800);r.button.click();r.advance(6000);
+    assert.equal(r.main.calls.length,0);assert.equal(r.button.attributes['aria-pressed'],'false');
+  }
+});
+
+test('page turning holds the entrance and moving to a new scene restarts it',()=>{
+  const r=rig({living:true});r.page.style.display='block';r.button.click();r.advance(2500);
+  assert.equal(r.main.calls.length,0);r.page.style.display='none';r.advance(8000);
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
+  r.scene('between');assert.equal(r.main.calls.length,0);r.advance(800);assert.ok(r.materials.some(m=>m.kind===8));
+});
+
+test('reduced motion and pause show the finished bridge encounter and allow return',()=>{
   for(const reduced of [true,false]){
-    const r=rig({reduced});if(!reduced)r.pause();r.button.click();
-    assert.equal(r.body.length,1);assert.ok(r.reflections.length>0);
-    r.scene('city');assert.equal(r.body.length,1);r.button.click();assert.equal(r.main.calls.length,0);
+    const r=rig({reduced,living:true});if(!reduced)r.pause();r.button.click();
+    assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')&&c.args[2]===512));
+    assert.equal(r.materials.filter(m=>m.kind===9).at(-1).time,0);
+    r.scene('between');assert.equal(r.materials.filter(m=>m.kind===8).at(-1).time,0);
+    r.button.click();assert.equal(r.main.calls.length,0);
   }
+});
+
+test('the bridge and tunnel still render without WebGL',()=>{
+  const r=rig();r.button.click();r.advance(8000);
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
+  r.scene('between');r.advance(3000);assert.ok(!r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woman')));
 });
 
 test('a floor texture loaded during pause refreshes the material without advancing time',()=>{

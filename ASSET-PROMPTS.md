@@ -2,9 +2,15 @@
 
 Изображения созданы встроенным инструментом imagegen (без CLI/API). Для фигур использована настоящая прозрачность; альфа сохранена при оптимизации в WebP. Исходные иллюстрации и портреты сохранены. Внешность Бомбо и големши уточнена по восьми предоставленным страницам «про големов.pdf», затем образ Бомбо переработан по просьбам пользователя: текущая версия опирается на первый референс пользователя с цепями: обезображенное лицо, ржавая железная челюсть, ржавые цепи и реалистичная рваная одежда. Движущийся туман, мрамор и спектральное пламя рисуются кодом, изображения задают анатомию.
 
+## Bridge encounter assets
+
+`assets/golem-bridge-atlas.webp` and `assets/gargoyle-climber.webp` were generated with the built-in image_gen tool using `golem-bombo-chained.webp` as the identity reference and `marble.webp` as the lighting reference. Full prompts: [bridge-creatures.prompt.txt](assets/bridge-creatures.prompt.txt). Alpha preserved during WebP optimization.
+
+The golem atlas contains a headless climbing torso and three head views. Canvas animation fixes the upper hand to the photographed lamp, lifts the torso behind the parapet, and turns the head separately. The gargoyle's procedural deformation moves wing membranes, forearms and tail; staggered climbs and foreground claws share the actual bridge edge. A separate sky shader supplies dark clouds and distant violet lightning.
+
 ## assets/phoenix-filaments.webp
 
-Current courtyard phoenix. Built-in imagegen edit of golden-phoenix.webp: a compact hummingbird-like bird woven from golden light filaments, with a slender beak and fine tail strands. [Full prompt](assets/phoenix-filaments.prompt.txt). Optimized to 768 × 768 with alpha preserved. A procedural material makes the space between bright strands translucent and sends moving light through them. Four short exposure samples per wing soften fast figure-eight strokes; the body has small independent hovering corrections.
+Current courtyard phoenix. Built-in imagegen edit of golden-phoenix.webp: a compact hummingbird-like bird woven from golden light filaments, with a slender beak and fine tail strands. [Full prompt](assets/phoenix-filaments.prompt.txt). Optimized to 768 × 768 with alpha preserved. A procedural material makes the space between bright strands translucent and sends moving light through them. Four short exposure samples per wing soften fast figure-eight strokes; the body has small independent hovering corrections. The head and tail are articulated separately. The lantern ignites without connecting light ribbons; formation begins in its bright core before lifting.
 
 ## assets/golden-phoenix.webp
 
@@ -16,7 +22,7 @@ Current city apparition, edited with built-in imagegen from djinn-visitor.webp. 
 
 ## assets/golem-bombo-chained.webp
 
-Current asset used for the body, floor reflection and sampled flame silhouette. Generated with built-in imagegen from the user's first chained portrait reference, followed by a focused edit of the clothing and rust. The final costume is torn woven wool and cotton with seams, folds, holes and loose threads; chains and iron fittings have dark pitted oxidation. Optimized to 960 × 1440 with genuine alpha preserved. Both full prompts are saved in [golem-bombo-chained.prompt.txt](assets/golem-bombo-chained.prompt.txt).
+Preserved former floor-assembly asset, now used as the identity reference for golem-bridge-atlas.webp. Generated with built-in imagegen from the user's first chained portrait reference, followed by a focused edit of the clothing and rust. The final costume is torn woven wool and cotton with seams, folds, holes and loose threads; chains and iron fittings have dark pitted oxidation. Optimized to 960 × 1440 with genuine alpha preserved. Both full prompts are saved in [golem-bombo-chained.prompt.txt](assets/golem-bombo-chained.prompt.txt).
 
 The shader preserves restrained rusty brown on the metal, adds dim violet eye and skin-vein shimmer aligned to the new anatomy, and keeps the body dark with sparse marble reflections. Translucent spectral flames assemble the figure from floor shadows, then fade out completely. The finished body is slightly transparent; intermittent branching glimmers propagate from both feet across the marble.
 

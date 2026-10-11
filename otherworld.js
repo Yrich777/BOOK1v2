@@ -13,7 +13,6 @@
   const noiseHashes = new Float64Array(16384).fill(NaN);
   const backgrounds = {};
   const floorImage=new Image();floorImage.src='assets/marble.webp';backgrounds.marble=floorImage;
-  const flameContours = new WeakMap();
   const duration = 7.2;
   let activeScene = null, open = false, progress = 0, last = 0, clock = 0, encounterTime=0;
   let w = innerWidth, h = innerHeight, pixelRatio = 1;
@@ -24,12 +23,12 @@
     prologue: 'За порталом кто-то ждёт.',
     city: 'У города есть другие обитатели.',
     blade: 'Заклятие оставляет след даже в отражении.',
-    marble: 'Сначала — отражение. Потом — тот, кто его отбрасывает.',
-    between: 'В переходе ты не один.',
+    marble: 'За краем моста цепляются каменные когти. Бомбо поднимает голову.',
+    between: 'Стены перехода переливаются, словно грани иного мира.',
     fates: 'В свете старого фонаря просыпается феникс.',
     read: 'Иная Москва остаётся по ту сторону страниц.'
   };
-  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
+  for (const [key, file] of Object.entries({bridgeGolem:'golem-bridge-atlas',gargoyle:'gargoyle-climber',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
     const im = new Image();
     im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'stone':'smoke');render();};
     im.onerror = () => { status.textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
@@ -193,6 +192,69 @@
     }
     ctx.restore();
   }
+  function bridgeEdge(){
+    ctx.beginPath();ctx.moveTo(1020,-100);ctx.lineTo(1636,-100);ctx.lineTo(1636,725);
+    ctx.lineTo(1375,662);ctx.lineTo(1174,612);ctx.lineTo(1020,573);ctx.closePath();
+  }
+  function bridgeEncounter(){
+    const t=still()?0:clock*.001,presence=smooth(progress/1.3);
+    const storm=window.Manifestations?.render(floorImage,{time:still()?0:encounterTime*1000,kind:9,reveal:smooth(progress/3),opacity:presence});
+    if(storm)ctx.drawImage(storm,0,0,1536,1024);
+    else {ctx.save();bridgeEdge();ctx.clip();gradient(1310,220,480,480,'8,8,25',presence*.65);ctx.restore();}
+    // The parapet is a real occluder: bodies remain beyond its sloping edge.
+    const creatures=[[1483,686,175,.05],[1150,604,110,.48]];
+    const im=images.gargoyle;
+    if(im?.naturalWidth)creatures.forEach(([x,edge,width,delay],i)=>{
+      const pull=smooth((progress-delay)/3.4);if(pull<=0)return;
+      const height=width*im.naturalHeight/im.naturalWidth;
+      const moving=window.Manifestations?.render(im,{time:still()?0:clock+i*1900,kind:10,reach:pull})||im;
+      const strain=still()?0:Math.sin(t*3.1+i*2)*2.5*Math.sin(pull*Math.PI);
+      ctx.save();bridgeEdge();ctx.clip();
+      const bodyX=x-pull*22,bodyY=edge+height*(.90-pull*.78)-pull*5+strain;
+      ctx.translate(bodyX,bodyY);
+      ctx.rotate((1-pull)*.18+(still()?0:Math.sin(t*.85+i)*.015));
+      ctx.filter='brightness(.67) saturate(.7)';
+      ctx.drawImage(moving,-width*.5,-height,width,height);ctx.restore();
+      // Fingers curl over the front lip after the first upward pull.
+      const grip=smooth((pull-.35)/.4);
+      if(grip>0){ctx.save();ctx.globalAlpha=grip;ctx.filter='brightness(.68) saturate(.7)';
+        const handWidth=width*.23,handHeight=height*.25;
+        for(const u of [.04,.49]){
+          const curl=still()?0:Math.sin(t*1.4+i+u)*.7;
+          ctx.drawImage(im,im.naturalWidth*u,im.naturalHeight*.75,im.naturalWidth*.23,im.naturalHeight*.25,
+            bodyX-width*.5+width*u,bodyY-height*.25+curl,handWidth,handHeight);
+        }ctx.restore();}
+    });
+    const golem=images.bridgeGolem,rise=smooth((progress-1.05)/3.5);
+    if(!golem?.naturalWidth||rise<=0)return;
+    const turn=smooth((progress-4.4)/2.1),scale=.34;
+    ctx.save();bridgeEdge();ctx.clip();
+    // The upper hand stays fixed to the lantern while the torso swings up.
+    ctx.translate(1374,585);ctx.rotate(-.92*(1-rise));ctx.scale(scale,scale);ctx.translate(-720,-75);
+    ctx.filter='brightness(.68) saturate(.72)';
+    ctx.drawImage(golem,0,0,768,512,0,0,768,512);
+    ctx.save();ctx.translate(377,145);ctx.rotate((1-turn)*.10+(still()?0:Math.sin(t*.53)*.012));
+    ctx.scale(.84+.16*turn,1);ctx.translate(-257,-339);
+    // Three aligned views give a real change of gaze, with a slight neck roll.
+    const poses=[[768,0,1-smooth(turn*2),false,0],[0,512,Math.sin(turn*Math.PI),true,48],[768,512,smooth((turn-.5)*2),false,0]];
+    const total=poses.reduce((sum,p)=>sum+p[2],0);
+    poses.forEach(([sx,sy,weight,flip,inset])=>{if(weight<=0)return;ctx.save();ctx.globalAlpha=weight/total;
+      if(flip){ctx.translate(514,0);ctx.scale(-1,1);}ctx.drawImage(golem,sx,sy+inset,768,512-inset,0,inset*342/512,514,(512-inset)*342/512);ctx.restore();});
+    ctx.restore();ctx.restore();
+    // Restore the photographed post over the grip; fingertips remain around it.
+    if(floorImage.naturalWidth){ctx.save();ctx.globalAlpha=rise;ctx.drawImage(floorImage,1368,574,12,64,1368,574,12,64);ctx.restore();}
+    ctx.save();ctx.globalCompositeOperation='screen';gradient(1374,548,36,58,'177,107,244',presence*(.16+.12*Math.sin(t*.7)**2));ctx.restore();
+  }
+  function tunnelLights(){
+    const im=backgrounds.between;if(!im?.naturalWidth)return;
+    const light=window.Manifestations?.render(im,{time:still()?0:clock,kind:8,opacity:smooth(progress/2.1)});
+    ctx.save();ctx.globalCompositeOperation='screen';
+    if(light)ctx.drawImage(light,0,0,1536,1024);
+    else {
+      ctx.beginPath();ctx.moveTo(600,0);ctx.lineTo(1150,0);ctx.lineTo(1090,475);ctx.lineTo(760,470);ctx.closePath();ctx.clip();
+      for(let i=0;i<7;i++)gradient(750+i*41,100+i*49,110,75,i%2?'115,66,193':'44,159,174',smooth(progress/2)*(.05+.10*Math.sin(clock*.0007+i)**2));
+    }ctx.restore();
+  }
   function goldenPhoenix(){
     const im=images.phoenix;if(!im?.naturalWidth)return;
     const t=still()?0:clock*.001,lampX=746,lampY=487;
@@ -205,15 +267,6 @@
     gradient(lampX,623,48,8,'255,184,73',kindle*.19*breath);
     // Keep the forming chest inside the lantern's bright core, then lift away.
     const size=14+form*110,cx=lampX-size*.08*(1-lift)+lift*(Math.sin(t*.73)*2.7+Math.sin(t*1.13)*1.1),cy=lampY+size*.04*(1-lift)-lift*44+lift*(Math.sin(t*1.3)*1.6+Math.sin(t*2.1)*.5);
-    if(!still()&&form<1){
-      for(let i=0;i<7;i++){
-        const sway=Math.sin(t*1.7+i*1.9),side=i%2?1:-1;
-        ctx.beginPath();ctx.moveTo(lampX,lampY+6);
-        ctx.bezierCurveTo(lampX+side*32*sway,lampY-28,cx+side*size*.4,cy-22,cx+side*size*.31*form,cy-size*.12);
-        ctx.strokeStyle=`rgba(255,${185+i*7},94,${kindle*(1-form)*.22})`;
-        ctx.lineWidth=1.1+(i%3)*.7;ctx.shadowColor='#f4b553';ctx.shadowBlur=7;ctx.stroke();
-      }
-    }
     ctx.shadowBlur=0;gradient(cx,cy-size*.06,size*.64,size*.68,'255,191,74',form*.14*breath);
     ctx.restore();if(form<=0)return;
     const light=window.Manifestations?.render(im,{time:still()?0:clock,reveal:form,kind:6});
@@ -234,130 +287,15 @@
         ctx.beginPath();trace(points);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();
       }
     });
-    ctx.beginPath();ctx.rect(0,0,1,1);wings.forEach(trace);ctx.clip('evenodd');ctx.drawImage(source,0,0,1,1);ctx.restore();
-  }
-  function assembleFromFloor(im,x,foot,height){
-    if(!im?.naturalWidth||still()||progress<=0)return;
-    const extinguish=1-smooth((encounterTime-duration)/1.1);
-    if(extinguish<=.001)return;
-    // These are connected, soft-edged sheets of shadow. A sampled alpha contour
-    // lets the rising tongues share the creature's anatomy instead of glittering
-    // around a finished photograph. The same stage coordinates work on mobile.
-    let contour=flameContours.get(im);
-    if(!contour){
-      const sample=document.createElement('canvas');sample.width=128;sample.height=192;
-      const sc=sample.getContext('2d',{willReadFrequently:true});sc.drawImage(im,0,0,128,192);
-      const pixels=sc.getImageData(0,0,128,192).data;
-      contour={left:new Float32Array(192),right:new Float32Array(192)};
-      let previousLeft=.35,previousRight=.6;
-      for(let row=0;row<192;row++){
-        let left=-1,right=-1;
-        for(let col=0;col<128;col++)if(pixels[(row*128+col)*4+3]>65){if(left<0)left=col;right=col;}
-        if(left>=0){previousLeft=left/128;previousRight=right/128;}
-        contour.left[row]=previousLeft;contour.right[row]=previousRight;
-      }
-      flameContours.set(im,contour);
-    }
-    const width=height*im.naturalWidth/im.naturalHeight,time=clock*.001;
-    const completion=smooth((progress-5.6)/(duration-5.6));
-    // Finish the head, then let every flame fade away over the next second.
-    const envelope=smooth(progress/.32)*(1-completion*.54)*extinguish;
-    const fire=window.Manifestations?.render(im,{time:clock,reveal:progress/duration,kind:4,opacity:1,floor:floorImage});
-    if(fire){
-      ctx.save();ctx.globalAlpha=smooth(progress/.2)*(.9-completion*.55)*extinguish;
-      ctx.drawImage(fire,x-width*.5,foot-height,width,height);ctx.restore();
-    }
-    const edgeAt=(side,v)=>{
-      const row=Math.max(0,Math.min(190,v*191)),i=Math.floor(row),f=row-i;
-      const field=side<0?contour.left:contour.right;
-      return x-width*.5+(field[i]*(1-f)+field[i+1]*f)*width;
-    };
-    const ribbon=(points,size,alpha,flame=false,seed=0)=>{
-      if(alpha<=.001||points.length<3)return;
-      const left=[],right=[];
-      for(let i=0;i<points.length;i++){
-        const p=points[i],before=points[Math.max(0,i-1)],after=points[Math.min(points.length-1,i+1)];
-        const dx=after.x-before.x,dy=after.y-before.y,length=Math.hypot(dx,dy)||1;
-        const u=i/(points.length-1),breathing=.5+.5*Math.sin(u*15-time*2.15+seed);
-        const taper=flame?Math.sin(Math.PI*u)**.72*(1-u)**.55:Math.sin(Math.PI*u)**.8;
-        const breadth=size*taper*(flame?.42+.58*breathing**1.4:.74+.26*breathing);
-        left.push({x:p.x-dy/length*breadth,y:p.y+dx/length*breadth});
-        right.push({x:p.x+dy/length*breadth,y:p.y-dx/length*breadth});
-      }
-      const perimeter=left.concat(right.reverse());
-      const trace=()=>{
-        ctx.beginPath();ctx.moveTo((perimeter[0].x+perimeter.at(-1).x)*.5,(perimeter[0].y+perimeter.at(-1).y)*.5);
-        for(let i=0;i<perimeter.length;i++){
-          const p=perimeter[i],next=perimeter[(i+1)%perimeter.length];
-          ctx.quadraticCurveTo(p.x,p.y,(p.x+next.x)*.5,(p.y+next.y)*.5);
-        }
-        ctx.closePath();
-      };
-      const start=points[0],end=points.at(-1),color=ctx.createLinearGradient(start.x,start.y,end.x,end.y);
-      color.addColorStop(0,'rgba(8,5,16,.28)');color.addColorStop(.32,'rgba(16,10,31,.91)');
-      color.addColorStop(.64,flame?'rgba(91,68,121,.76)':'rgba(35,24,52,.9)');
-      color.addColorStop(.86,flame?'rgba(144,113,164,.46)':'rgba(65,44,80,.68)');color.addColorStop(1,'rgba(105,72,144,0)');
-      ctx.globalAlpha=alpha;ctx.fillStyle=color;ctx.filter=`blur(${height*(flame?.0055:.012)}px)`;trace();ctx.fill();
-      ctx.globalAlpha=alpha*.48;ctx.filter=`blur(${height*.003}px)`;trace();ctx.fill();
-      // The sheen fills a folded sheet of smoke rather than outlining a
-      // glowing tube. Broad translucency and a tapered curl read as fire.
-      if(flame){
-        const glow=ctx.createLinearGradient(start.x,start.y,end.x,end.y);
-        glow.addColorStop(0,'rgba(114,75,143,0)');glow.addColorStop(.31,'rgba(148,111,175,.21)');
-        glow.addColorStop(.67,'rgba(165,139,188,.56)');glow.addColorStop(1,'rgba(125,86,165,0)');
-        ctx.globalCompositeOperation='screen';ctx.globalAlpha=alpha*.38;ctx.fillStyle=glow;ctx.filter=`blur(${height*.005}px)`;trace();ctx.fill();
-        ctx.globalCompositeOperation='source-over';
-      }
-    };
-    ctx.save();ctx.globalCompositeOperation='source-over';
-    const gathering=smooth((progress-.04)/3.8),floorStrength=envelope*(1-smooth((progress-4.6)/2.6)*.68);
-    for(let i=0;i<11;i++){
-      const side=i%2?-1:1,a=i*2.399,reach=height*(.55+(i%3)*.15);
-      const sx=x+side*reach,sy=foot+height*(.07+(i%4)*.063);
-      const root=x+side*width*(.07+(i%3)*.018);
-      const pulse=.5+.5*Math.sin(time*.76+a),head=clamp(.17+gathering*.83+(i-5)*.018),tail=Math.max(0,head-.72);
-      const points=[];
-      for(let j=0;j<30;j++){
-        const q=tail+(head-tail)*j/29,bend=Math.sin(q*Math.PI)*(1-q);
-        points.push({x:sx+(root-sx)*q+Math.sin(q*8-time*.94+a)*height*.075*bend,
-          y:sy+(foot-sy)*q+Math.sin(q*7-time*.7+a)*height*.065*bend});
-      }
-      ribbon(points,height*(.033+(i%3)*.009),floorStrength*(.57+.26*pulse),false,a);
-    }
-    const rise=smooth((progress-.12)/6.65),front=1-rise;
-    for(const side of [-1,1])for(let i=0;i<7;i++){
-      const seed=i*1.83+(side<0?2.4:.3),base=.99-(i%4)*.17;
-      const wake=smooth((base-front+.15)/.22);
-      if(wake<=0)continue;
-      const bottom=Math.min(.995,Math.max(base,front+.08));
-      const length=.17+.17*(.5+.5*Math.sin(time*.83+seed))+.06*(i%3);
-      const tip=Math.max(.004,bottom-length,front-.085);
-      if(bottom-tip<.02)continue;
-      const points=[];
-      for(let j=0;j<34;j++){
-        const u=j/33,v=bottom+(tip-bottom)*u;
-        const fold=Math.sin(u*Math.PI);
-        const curl=Math.sin(u*5.7-time*1.33+seed)*height*.037*fold+
-          Math.sin(u*11.6-time*2.17+seed)*height*.009*fold;
-        // Alternating tongues curl inside the forming mass; others spill past
-        // its silhouette, so the creature emerges from overlapping folds.
-        const inward=i%3===1?.11:.025,anchor=edgeAt(side,v)+side*width*(.025-inward);
-        points.push({x:anchor+side*curl,y:foot-height+v*height+Math.sin(u*7-time*1.7+seed)*height*.006*fold});
-      }
-      ribbon(points,height*(.018+(i%3)*.006),envelope*wake*(.61+.16*Math.sin(time*.7+seed)**2),true,seed);
-    }
-    ctx.restore();
-  }
-  function golemSpell(x,foot,height){
-    if(progress<4.6)return;
-    const width=height*images.golem.naturalWidth/images.golem.naturalHeight,left=x-width*.5,top=foot-height;
-    const awakening=smooth((progress-4.6)/2),eye=awakening*(still()?.42:.42+.18*Math.sin(clock*.0007)**2);
-    ctx.save();ctx.globalCompositeOperation='screen';
-    for(const [u,v] of [[.359,.098],[.410,.086]]){
-      gradient(left+u*width,top+v*height,height*.013,height*.009,'133,68,212',eye*.72);
-      gradient(left+u*width,top+v*height,height*.003,height*.0023,'211,166,255',eye*.76);
-    }
-    ctx.restore();
+    const head=[[.42,.14],[.56,.13],[.68,.23],[.80,.25],[.80,.31],[.67,.32],[.66,.40],[.53,.43],[.49,.30]];
+    const tail=[[.47,.61],[.62,.62],[.68,1],[.18,1],[.18,.71],[.39,.69]];
+    ctx.save();ctx.beginPath();ctx.rect(0,0,1,1);[...wings,head,tail].forEach(trace);ctx.clip('evenodd');ctx.drawImage(source,0,0,1,1);ctx.restore();
+    const glance=still()?0:Math.sin(t*.83+.6*Math.sin(t*.31))*.11;
+    ctx.save();ctx.translate(.585,.37);ctx.rotate(glance);ctx.scale(1-Math.abs(glance)*1.1,1);ctx.translate(-.585,-.37);
+    ctx.beginPath();trace(head);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();
+    const twitch=still()?0:Math.sin(t*17)*Math.max(0,Math.sin(t*1.23+.5))**8*.055;
+    ctx.save();ctx.translate(.52,.63);ctx.rotate(twitch+(still()?0:Math.sin(t*2.1)*.014));ctx.translate(-.52,-.63);
+    ctx.beginPath();trace(tail);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();ctx.restore();
   }
   function entwinedFog(x,foot,height,strength,cloud=false){
     if(strength<=0)return;
@@ -404,8 +342,7 @@
   function render() {
     ctx.clearRect(0, 0, w, h);
     if (!activeScene || !progress) return;
-    const presence = smooth(progress / 1.5), body = smooth((progress - 2.3) / 1.2);
-    const reflection = smooth((progress-.25) / 1.15), id = activeScene.id;
+    const presence = smooth(progress / 1.5), id = activeScene.id;
     const courtyard=w<600&&id==='fates';
     const scale = courtyard?h*.52/1024:Math.max(w / 1536, h / 1024);
     const position = id === 'blade' ? (w < 600 ? .74 : .66) : id === 'fates' ? (courtyard?.72:.75) : id === 'prologue' && w < 600 ? .67 : .5;
@@ -416,30 +353,9 @@
     const stageFoot = mobile ? (h * (id === 'marble' ? .46 : .51) - oy) / scale : 757;
     const stageHeight = mobile ? h * (id === 'marble' ? .32 : .37) / scale : 505;
     if (id === 'marble') {
-      const floorScale=mobile?h*.62/1024/scale:1;
-      const floorX=mobile?((w-1536*floorScale*scale)*.75-ox)/scale:0;
-      const floorY=mobile?-oy/scale:0;
-      const figureWidth=stageHeight*(images.golem?.naturalWidth||960)/(images.golem?.naturalHeight||1440);
-      const fracture=!still()&&open&&encounterTime>duration+.9?encounterTime-duration-.9:-1;
-      const floor=window.Manifestations?.render(floorImage,{time:still()?0:clock,reveal:progress/duration,kind:3,opacity:presence,fracture,
-        originX:(stageX+figureWidth*.085-floorX)/floorScale/1536,
-        originY:1-(stageFoot-stageHeight*.018-floorY)/floorScale/1024,
-        spread:figureWidth*.19/floorScale/1536});
-      if(floor){ctx.save();if(mobile){const s=h*.62/1024/scale;ctx.translate(((w-1536*s*scale)*.75-ox)/scale,-oy/scale);ctx.scale(s,s);}ctx.drawImage(floor,0,0,1536,1024);ctx.restore();}
-      gradient(stageX, stageFoot - 140, 260, 380, '12,16,27', presence * .16);
-      figure(images.golem, stageX, stageFoot, stageHeight, reflection * .72, true);
-      gradient(stageX, stageFoot - 2, stageHeight * .27, 13, '0,3,9', body * .65);
-      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .76 : 0);
-      assembleFromFloor(images.golem,stageX,stageFoot,stageHeight);
-      golemSpell(stageX,stageFoot,stageHeight);
-      mist(stageX, stageFoot, stageHeight, presence*(1-smooth((progress-5.8)/1.4)*.72));
-      // Rings disturb the reflection before a body has materialized.
-      if (progress < duration) for (let i = 0; i < 3; i++) {
-        const p = clamp((progress - i * .42) / 4.8);
-        ctx.save(); ctx.translate(stageX, stageFoot + 14); ctx.scale(1, .17);
-        ctx.beginPath(); ctx.arc(0, 0, 30 + p * 250, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(188,172,217,${Math.sin(p * Math.PI) * .2})`; ctx.lineWidth = 1.3; ctx.stroke(); ctx.restore();
-      }
+      ctx.save();
+      if(mobile){const s=h*.62/1024/scale;ctx.translate(((w-1536*s*scale)*.75-ox)/scale,-oy/scale);ctx.scale(s,s);}
+      bridgeEncounter();ctx.restore();
     } else if (id === 'city') {
       const x = mobile ? stageX : 1200, foot = mobile ? stageFoot : 780;
       const height = mobile ? stageHeight : 495;
@@ -455,12 +371,9 @@
       figure(images.golemsha, 889, 628, 225, .96, false, true);
       mist(889, 628, 220, presence);
     } else if (id === 'between') {
-      // The intruder occupies the tunnel, leaving Rasta on the right unobscured.
-      const x = mobile ? (w * .27 - ox) / scale : 943;
-      const foot = mobile ? (h*.39-oy)/scale : 473;
-      shadow(images.golemsha,x+15,foot,190,presence*.44*(1-smooth((progress-2)/2)));
-      figure(images.golemsha, x, foot, mobile ? h*.14/scale : 190, .76, false, true);
-      mist(x, foot, 180, presence);
+      ctx.save();
+      if(mobile){const s=h*.44/1024/scale;ctx.translate(((w-1536*s*scale)*.83-ox)/scale,(h*.12-oy)/scale);ctx.scale(s,s);}
+      tunnelLights();ctx.restore();
     } else if (id === 'fates') {
       goldenPhoenix();
     } else if (id === 'blade') {
