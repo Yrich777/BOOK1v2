@@ -17,40 +17,19 @@ window.Manifestations = (() => {
     float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
     float fbm(vec2 p){float a=.5,n=0.;for(int i=0;i<4;i++){n+=a*noise(p);p=mat2(1.62,1.17,-1.17,1.62)*p+vec2(3.1,7.4);a*=.5;}return n;}
+    // Body and fire share this exact field and clock: anatomy is revealed
+    // inside the moving tongues, rather than faded over an unrelated flame.
+    vec3 flameField(vec2 p,float age,float amount){
+      vec2 fq=p*vec2(10.2,3.7);
+      vec2 eddy=vec2(fbm(fq+vec2(0.,-age*.55)),fbm(fq*.73+vec2(age*.12,-age*.4)))-.5;
+      float density=fbm(fq+eddy*2.8+vec2(0.,-age*.64));
+      float fold=fbm(p*vec2(4.,5.)+vec2(age*.09,-age*.31));
+      float rise=.07+smoothstep(0.,.94,amount)*1.08;
+      float front=smoothstep(-.075,.13,rise-p.y+(fold-.5)*.26);
+      return vec3(density,fold,front);
+    }
     void main(){
       float t=time;
-      if(kind>9.5){
-        vec2 p=vec2(uv.x,1.-uv.y),offset=vec2(0.);
-        float exertion=(1.-reach)*sin(t*3.1)*.024;
-        float wing=(1.-smoothstep(.36,.52,p.y))*smoothstep(.11,.27,abs(p.x-.5));
-        offset.x+=(p.x-.5)*wing*(exertion+.018*sin(t*1.4));
-        offset.y+=wing*.006*sin(t*1.1+p.x*4.);
-        float forearm=smoothstep(.48,.64,p.y)*(1.-smoothstep(.83,.96,p.y));
-        offset.x+=forearm*.008*sin(t*2.7+p.x*10.)*(1.-reach*.85);
-        float tail=smoothstep(.87,.96,p.x)*smoothstep(.3,.5,p.y);
-        offset.y+=tail*.008*sin(t*2.2+p.y*6.);
-        vec4 creature=texture2D(anatomy,uv+offset);
-        float eyes=smoothstep(.04,.20,creature.b-max(creature.r*.9,creature.g*1.3));
-        float face=1.-smoothstep(.05,.15,length((p-vec2(.33,.37))*vec2(1.,1.3)));
-        creature.rgb+=vec3(.18,.035,.27)*eyes*face*(.55+.45*sin(t*.9)*sin(t*.9));
-        gl_FragColor=creature;return;
-      }
-      if(kind>8.5){
-        vec2 p=vec2(uv.x,1.-uv.y);
-        vec3 stone=texture2D(anatomy,uv).rgb;
-        float sky=smoothstep(.56,.66,p.x)*(1.-smoothstep(.50,.66,p.y));
-        float light=max(stone.r,max(stone.g,stone.b));
-        sky*=smoothstep(.12,.36,light)*smoothstep(-.04,.06,stone.b-stone.r);
-        float clouds=fbm(p*vec2(7.,10.)+vec2(t*.025,t*.013));
-        float front=smoothstep(.1,.95,reveal);
-        vec3 cloud=mix(vec3(.018,.027,.05),vec3(.11,.09,.17),clouds);
-        float strike=pow(max(0.,sin(t*.51+1.1)),28.)*smoothstep(.2,.5,reveal);
-        float boltX=.82+.019*sin(p.y*43.)+.011*sin(p.y*107.);
-        float bolt=exp(-abs(p.x-boltX)*1700.)*(1.-smoothstep(.29,.39,p.y))*smoothstep(.055,.085,p.y);
-        float fork=exp(-abs(p.x-(boltX+.32*(p.y-.19)))*1800.)*smoothstep(.18,.20,p.y)*(1.-smoothstep(.30,.34,p.y));
-        cloud+=vec3(.44,.30,.72)*strike*(bolt+fork*.6+exp(-abs(p.x-boltX)*40.)*.07);
-        gl_FragColor=vec4(cloud,sky*(.56+.32*clouds)*front*opacity);return;
-      }
       if(kind>7.5){
         vec2 p=vec2(uv.x,1.-uv.y)*vec2(1536.,1024.);
         vec3 original=texture2D(anatomy,uv).rgb;
@@ -175,8 +154,8 @@ window.Manifestations = (() => {
         // guides where folds join, rather than supplying a photograph's color.
         vec2 fireQ=uv*vec2(10.2,3.7);
         vec2 eddy=vec2(fbm(fireQ+vec2(0.,-t*.55)),fbm(fireQ*.73+vec2(t*.12,-t*.4)))-.5;
-        float fireNoise=fbm(fireQ+eddy*2.8+vec2(0.,-t*.64));
-        float slowFold=fbm(uv*vec2(4.,5.)+vec2(t*.09,-t*.31));
+        vec3 field=flameField(uv,t,reveal);
+        float fireNoise=field.x,slowFold=field.y;
         vec2 fireUV=uv+vec2(eddy.x*.065,eddy.y*.023-.032);
         float core=texture2D(anatomy,fireUV).a;
         float halo=texture2D(anatomy,fireUV+vec2(.029,.028)).a;
@@ -185,8 +164,7 @@ window.Manifestations = (() => {
         halo+=texture2D(anatomy,fireUV+vec2(-.017,-.04)).a;
         halo*=.25;
         float volume=core*.53+halo*.47;
-        float rise=.07+smoothstep(0.,.94,reveal)*1.08;
-        float front=smoothstep(-.075,.13,rise-uv.y+(slowFold-.5)*.26);
+        float front=field.z;
         float veil=smoothstep(.26,.65,fireNoise);
         float filament=1.-smoothstep(.025,.115,abs(fireNoise-.51));
         float edgeFlame=max(0.,halo-core*.6);
@@ -200,19 +178,25 @@ window.Manifestations = (() => {
         // Keep the completed face legible while fire still moves over the body.
         alpha*=1.-smoothstep(.8,.96,uv.y)*smoothstep(.78,1.,reveal)*.72;
       }else if(kind>2.5){
-        // Broad shadows travel along the photographed floor's veins. Their
-        // cool, nearly neutral glints stay subordinate to the dark current.
+        // Advect the actual photographed veins inward over a broad floor area.
+        // Sampling progressively farther from the root draws those markings
+        // towards the feet, while the architecture above remains stationary.
         vec3 stone=texture2D(anatomy,uv).rgb;
-        float floorMask=1.-smoothstep(.41,.53,uv.y);
-        vec2 center=vec2(.742,.262);
-        float distance=length((uv-center)*vec2(1.,.65));
+        float horizon=.30+.165*exp(-pow((uv.x-.64)/.27,2.));
+        float floorMask=1.-smoothstep(horizon-.025,horizon+.015,uv.y);
+        vec2 center=vec2(originX,originY),delta=uv-center;
+        float distance=length(delta*vec2(1.,.65));
         float vein=clamp((max(stone.g,stone.b)-stone.r)*5.+dot(stone,vec3(.21,.72,.07))*.24,0.,1.);
-        float flowPhase=fbm(uv*14.+flow*.7+vec2(t*.025,0.))*12.-t*.9-distance*24.;
-        float crawling=pow(.5+.5*sin(flowPhase),3.);
-        float gathering=exp(-distance*(3.+reveal*9.));
-        float lip=pow(.5+.5*sin(flowPhase+.38),14.)*(1.-crawling*.6);
-        color=vec3(.028,.022,.044)+vec3(.15,.145,.17)*lip;
-        alpha=vein*floorMask*crawling*(.19+gathering*.64)*opacity*(1.-smoothstep(.82,1.,reveal));
+        vec2 curl=vec2(-delta.y,delta.x)*sin(distance*18.-t*.35)*.12*reveal;
+        vec2 source=center+delta*(1.+reveal*1.45)+curl;
+        float sourceHorizon=.30+.165*exp(-pow((source.x-.64)/.27,2.));
+        vec3 movingStone=texture2D(anatomy,clamp(source,vec2(.005),vec2(.995,sourceHorizon-.02))).rgb;
+        float movingVein=clamp((max(movingStone.g,movingStone.b)-movingStone.r)*5.+dot(movingStone,vec3(.21,.72,.07))*.5,0.,1.);
+        float pulse=.68+.32*sin(distance*32.+t*1.1+movingVein*4.);
+        float gathering=exp(-distance*5.);
+        float extent=1.-smoothstep(.57,.93,distance);
+        color=movingStone*.65+vec3(.14,.13,.17)*movingVein*pulse;
+        alpha=floorMask*extent*(.23+movingVein*.48+gathering*.12)*opacity*smoothstep(0.,.12,reveal)*(1.-smoothstep(.82,1.,reveal));
         if(fracture>=0.){
           float age=mod(fracture,9.8);
           float burst=smoothstep(0.,.45,age)*(1.-smoothstep(3.8,5.1,age));
@@ -265,9 +249,11 @@ window.Manifestations = (() => {
       }else{
         // A wavering flame contour arrives before the dense body. Both are
         // continuous fields: no glitter, confetti or straight reveal band.
-        float flame=fbm(uv*vec2(10.,5.)+flow*2.+vec2(0.,-t*.53));
-        float front=reveal*1.36-uv.y*.84-(1.-flame)*.35;
-        float matter=smoothstep(-.02,.19,front)*smoothstep(.12,.63,reveal);
+        vec3 field=flameField(uv,t,reveal);
+        float flame=field.x;
+        float withinFlame=smoothstep(.33,.60,flame);
+        float matter=field.z*withinFlame*smoothstep(.12,.42,reveal);
+        matter=mix(matter,1.,smoothstep(.76,1.,reveal));
         vec2 plumeUV=warped+vec2((flame-.5)*.018,-.035-(1.-reveal)*.035);
         float plume=texture2D(anatomy,plumeUV).a;
         float contour=clamp(soft-shape.a*.55,0.,1.);
@@ -365,7 +351,7 @@ window.Manifestations = (() => {
  // Separate buffers avoid rebuilding the GPU drawing surface every time the
  // floor and the figure, which have different aspect ratios, are sampled.
  const figure=createMaterialRenderer(),floor=createMaterialRenderer(),fire=createMaterialRenderer();
- let blade,phoenix,portrait,tunnel,storm,gargoyle;
+ let blade,phoenix,portrait,tunnel;
  if(!figure)return null;
- return {render(im,options={}){if(options.kind===10){if(gargoyle===undefined)gargoyle=createMaterialRenderer();return gargoyle?.render(im,options)||null;}if(options.kind===9){if(storm===undefined)storm=createMaterialRenderer();return storm?.render(im,options)||null;}if(options.kind===8){if(tunnel===undefined)tunnel=createMaterialRenderer();return tunnel?.render(im,options)||null;}if(options.kind===7){if(portrait===undefined)portrait=createMaterialRenderer();return portrait?.render(im,options)||null;}if(options.kind===6){if(phoenix===undefined)phoenix=createMaterialRenderer();return phoenix?.render(im,options)||null;}if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
+ return {render(im,options={}){if(options.kind===8){if(tunnel===undefined)tunnel=createMaterialRenderer();return tunnel?.render(im,options)||null;}if(options.kind===7){if(portrait===undefined)portrait=createMaterialRenderer();return portrait?.render(im,options)||null;}if(options.kind===6){if(phoenix===undefined)phoenix=createMaterialRenderer();return phoenix?.render(im,options)||null;}if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
 })();

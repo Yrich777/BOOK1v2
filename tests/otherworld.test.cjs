@@ -66,23 +66,28 @@ test('the city orb waits for the reaching hand, shimmers, and disappears on retu
   const still=staticRig.materials.at(-1);assert.equal(still.reach,1);assert.ok(still.orbPower>0);
 });
 
-test('gargoyles precede the golem and the sky darkens before the climb',()=>{
-  const r=rig({living:true});r.button.click();r.advance(650);
-  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('gargoyle-climber')));
-  assert.ok(!r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
-  assert.ok(r.materials.some(m=>m.kind===9&&m.reveal>0&&m.reveal<1));
-  r.advance(1800);assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
-  assert.ok(!r.materials.some(m=>[2,3,4].includes(m.kind)),'the old floor assembly and flames are gone');
+test('marble gathering precedes the body, with no bridge creatures or storm',()=>{
+ const r=rig({living:true});r.button.click();r.advance(900);
+ assert.ok(r.materials.some(m=>m.kind===3&&m.reveal>0&&m.reveal<1));
+ assert.ok(r.reflections.length>0);
+ assert.ok(!r.materials.some(m=>m.kind===2&&m.reveal<1));
+ r.advance(2600);
+ assert.ok(r.materials.some(m=>m.kind===2&&m.reveal>0&&m.reveal<1));
+ assert.ok(!r.materials.some(m=>[9,10].includes(m.kind)));
+ assert.ok(!r.main.calls.some(c=>/bridge-atlas|gargoyle/.test(c.args[0]?.url||'')));
 });
 
-test('the golem keeps a hand at the lantern and turns from profile to the viewer',()=>{
-  const r=rig({living:true});r.button.click();r.advance(3000);
-  const golem=()=>r.main.calls.filter(c=>c.args[0]?.url?.includes('golem-bridge-atlas'));
-  assert.ok(golem().every(c=>c.transforms.some(v=>v[0]==='translate'&&v[1]===1374&&v[2]===585)));
-  assert.ok(golem().some(c=>c.args[1]===768&&c.args[2]===0),'profile during climb');
-  r.advance(4100);
-  assert.ok(golem().some(c=>c.args[1]===768&&c.args[2]===512),'front gaze after climbing');
-  assert.ok(!golem().some(c=>c.args[1]===768&&c.args[2]===0),'profile no longer drawn');
+test('body and quieter flames share reveal progress, then fire extinguishes',()=>{
+ const r=rig({living:true});r.button.click();r.advance(3600);
+ const body=r.materials.filter(m=>m.kind===2&&m.reveal<1).at(-1);
+ const flame=r.materials.filter(m=>m.kind===4).at(-1);
+ assert.equal(body.reveal,flame.reveal);assert.equal(body.time,flame.time);
+ assert.equal(flame.opacity,.62);
+ const draw=r.main.calls.find(c=>c.args[0]?.url?.includes('golem-bombo')&&c.filter==='none'&&c.args.length===5);
+ assert.equal(draw.alpha,.62);
+ r.advance(5600);r.materials.length=0;r.advance(100);
+ assert.ok(!r.materials.some(m=>m.kind===4));
+ assert.ok(r.materials.some(m=>m.kind===3&&m.fracture>0));
 });
 
 test('the tunnel uses living wall light without a distant character',()=>{
@@ -95,20 +100,14 @@ test('the tunnel uses living wall light without a distant character',()=>{
   r.button.click();assert.equal(r.main.calls.length,0);
 });
 
-test('the gripping hand remains registered to the lantern on desktop and mobile',()=>{
-  for(const [width,height] of [[1440,960],[390,844]]){
-    const r=rig({living:true,width,height});r.button.click();r.advance(2300);
-    const torso=r.main.calls.find(c=>c.args[0]?.url?.includes('golem-bridge-atlas')&&c.args[1]===0&&c.args[2]===0);
-    let x=720,y=75;
-    for(const [kind,a,b] of torso.transforms.slice().reverse()){
-      if(kind==='translate'){x+=a;y+=b;}
-      else if(kind==='scale'){x*=a;y*=b;}
-      else if(kind==='rotate'){const nx=x*Math.cos(a)-y*Math.sin(a);y=x*Math.sin(a)+y*Math.cos(a);x=nx;}
-    }
-    const mobile=width<600,s=mobile?height*.62/1024:Math.max(width/1536,height/1024);
-    assert.ok(Math.abs(x-((width-1536*s)*(mobile?.75:.5)+1374*s))<.001);
-    assert.ok(Math.abs(y-((mobile?0:(height-1024*s)*.5)+585*s))<.001);
-  }
+test('floor gathering follows the golem position on desktop and mobile',()=>{
+ for(const [width,height] of [[1440,960],[390,844]]){
+  const r=rig({living:true,width,height});r.button.click();r.advance(2300);
+  const floor=r.materials.filter(m=>m.kind===3).at(-1);
+  assert.ok(floor.originX>0&&floor.originX<1);
+  assert.ok(floor.originY>0&&floor.originY<.5);
+  assert.ok(floor.spread>0&&floor.spread<.1);
+ }
 });
 
 test('the lantern brightens before the bird, with articulated head and tail',()=>{
@@ -134,23 +133,23 @@ test('returning clears each new encounter and rapid reversals replay the entranc
 test('page turning holds the entrance and moving to a new scene restarts it',()=>{
   const r=rig({living:true});r.page.style.display='block';r.button.click();r.advance(2500);
   assert.equal(r.main.calls.length,0);r.page.style.display='none';r.advance(8000);
-  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bombo-chained')));
   r.scene('between');assert.equal(r.main.calls.length,0);r.advance(800);assert.ok(r.materials.some(m=>m.kind===8));
 });
 
-test('reduced motion and pause show the finished bridge encounter and allow return',()=>{
+test('reduced motion and pause show the translucent golem without flames',()=>{
   for(const reduced of [true,false]){
     const r=rig({reduced,living:true});if(!reduced)r.pause();r.button.click();
-    assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')&&c.args[2]===512));
-    assert.equal(r.materials.filter(m=>m.kind===9).at(-1).time,0);
+    assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bombo-chained')&&c.args.length===5));
+    assert.equal(r.materials.filter(m=>m.kind===2).at(-1).time,0);
     r.scene('between');assert.equal(r.materials.filter(m=>m.kind===8).at(-1).time,0);
     r.button.click();assert.equal(r.main.calls.length,0);
   }
 });
 
-test('the bridge and tunnel still render without WebGL',()=>{
-  const r=rig();r.button.click();r.advance(8000);
-  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bridge-atlas')));
+test('the golem and tunnel still render without WebGL',()=>{
+  const r=rig({reduced:true});r.button.click();
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-bombo-chained')));
   r.scene('between');r.advance(3000);assert.ok(!r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woman')));
 });
 
