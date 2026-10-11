@@ -1,12 +1,18 @@
 # Новые изображения · 10 октября 2026
 
-Изображения созданы встроенным инструментом imagegen (без CLI/API). Для фигур использована настоящая прозрачность; альфа сохранена при оптимизации в WebP. Исходные иллюстрации и портреты сохранены. Внешность Бомбо и големши уточнена по восьми предоставленным страницам «про големов.pdf», затем образ Бомбо переработан по просьбам пользователя: текущая версия опирается на первый референс пользователя с цепями: обезображенное лицо, ржавая железная челюсть, ржавые цепи и реалистичная рваная одежда. Движущийся туман, мрамор и спектральное пламя рисуются кодом, изображения задают анатомию.
+Изображения подготовлены встроенным инструментом imagegen (без CLI/API). Для фигур использована настоящая прозрачность; альфа сохранена при оптимизации в WebP. Исходные иллюстрации и портреты сохранены. Внешность Бомбо и големши ранее уточнялась по восьми предоставленным страницам «про големов.pdf». Текущий Бомбо использует предоставленное 11 октября изображение «голем1.jpg»: свиток, ржавые цепи и реалистичная рваная одежда. Пепельный туман, искры, свечение и падающая тень рисуются кодом; старые варианты сохранены ниже как история изображений.
+
+## assets/golem-ash.webp
+
+Current Bombo. Source: the user-provided голем1.jpg photograph (11 October 2026). The built-in image_gen tool extracted the creature onto true transparent alpha, preserving its full-body pose, scroll, rusty chains and ragged clothing. Optimized to 1122 × 1402 WebP with alpha preserved. [Exact extraction prompt](assets/golem-ash.prompt.txt).
+
+The shader preserves the photographic source. Ash-grey wind arrives from the right, then retreats inward with the same procedural boundary that reveals the body. Separate registered masks animate violet light on exposed parchment and red light inside the eye sockets. A projected silhouette casts a subtly fluctuating shadow clipped to the walkable bridge. The smoke texture is procedural, not baked into the image.
 
 ## assets/golem-woven.webp
 
-Current golem. Built-in image_gen edit of golem-bombo-chained.webp, keeping pose and identity while refining photographic skin, ragged fabric and tendon detail. Genuine alpha preserved at 960 x 1440; larger openings in clothing expose the scene. Full prompt: [golem-woven.prompt.txt](assets/golem-woven.prompt.txt).
+Preserved earlier filament concept, superseded by golem-ash.webp. Built-in image_gen edit of golem-bombo-chained.webp, keeping pose and identity while refining photographic skin, ragged fabric and tendon detail. Genuine alpha preserved at 960 x 1440; larger openings in clothing expose the scene. Full prompt: [golem-woven.prompt.txt](assets/golem-woven.prompt.txt).
 
-The shader preserves the photographed material instead of flattening it into a grey painting. A shared interlaced filament field reveals the anatomy from the feet upward. Cloth and tendon regions retain varying opacity while the face stays readable. Source green veins in the floor are recolored in place; no source texture is displaced.
+This earlier scene used an interlaced filament field to reveal anatomy from the feet upward and recolored source green veins in the floor. It has been replaced by the ash-wind encounter.
 
 ## Archived bridge encounter assets
 

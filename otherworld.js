@@ -13,7 +13,6 @@
   const noiseHashes = new Float64Array(16384).fill(NaN);
   const backgrounds = {};
   const floorImage=new Image();floorImage.src='assets/marble.webp';backgrounds.marble=floorImage;
-  const weaveContours = new WeakMap();
   const duration = 7.2;
   let activeScene = null, open = false, progress = 0, last = 0, clock = 0, encounterTime=0;
   let w = innerWidth, h = innerHeight, pixelRatio = 1;
@@ -24,14 +23,14 @@
     prologue: 'За порталом кто-то ждёт.',
     city: 'У города есть другие обитатели.',
     blade: 'Заклятие оставляет след даже в отражении.',
-    marble: 'Зелёный мрамор вспыхивает фиолетовым. Сиреневые нити сплетают Бомбо.',
+    marble: 'Ветер приносит пепельный туман. Сквозь него смотрят красные глаза Бомбо.',
     between: 'Стены перехода переливаются, словно грани иного мира.',
     fates: 'В свете старого фонаря просыпается феникс.',
     read: 'Иная Москва остаётся по ту сторону страниц.'
   };
-  for (const [key, file] of Object.entries({golem:'golem-woven',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
+  for (const [key, file] of Object.entries({golem:'golem-ash',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
     const im = new Image();
-    im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'stone':'smoke');render();};
+    im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'ash':'smoke');render();};
     im.onerror = () => { status.textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
     im.src = `assets/${file}.webp`;
     images[key] = im;
@@ -91,9 +90,9 @@
       data.maskPixels=data.maskCtx.createImageData(mw,mh);data.edgePixels=data.edgeCtx.createImageData(mw,mh);
       for(let y=0;y<mh;y++)for(let x=0;x<mw;x++){
         const n=noise(x/29,y/36)*.6+noise(x/11,y/13)*.28+noise(x/4,y/5)*.12;
-        // The golem builds upward out of its reflection. The djinn gathers inward
-        // from broad drifting folds of smoke into a narrow physical silhouette.
-        data.field[y*mw+x]=kind==='stone'?.08+.62*(1-y/mh)+.3*n:.08+.5*n+.24*Math.abs(x/mw-.5)*2+.18*(y/mh);
+        // The ash veil retreats from the outside to its center. Other visitors
+        // still gather from broad drifting folds of smoke.
+        data.field[y*mw+x]=kind==='ash'?.39+.60*(1-clamp(Math.hypot((x/mw-.5)*.8003/.53,(y/mh-.5)/.65)/1.3))+.06*n:.08+.5*n+.24*Math.abs(x/mw-.5)*2+.18*(y/mh);
       }
       materializations.set(im,data);
     }
@@ -128,7 +127,7 @@
     const phase=im===images.golem?progress/duration:smooth((progress-.35)/5.6);
     const kind=im===images.golem?2:activeScene.id==='prologue'?0:1;
     const spell=im===images.djinn?djinnSpell():{reach:-1,power:0};
-    const living=window.Manifestations?.render(im,{time:still()?0:clock,reveal:reflection&&im!==images.golem?1:phase,kind,opacity:1,floor:floorImage,reach:spell.reach,orbPower:spell.power});
+    const living=window.Manifestations?.render(im,{time:still()?0:clock,reveal:reflection&&im!==images.golem?1:phase,kind,opacity:1,floor:im===images.golem?null:floorImage,reach:spell.reach,orbPower:spell.power});
     if (reflection) {
       // Perspective-compressed inversion, sampled in strips for water distortion.
       const reflectedHeight = height * .44;
@@ -144,9 +143,10 @@
     } else {
       if(living){ctx.filter='none';ctx.globalAlpha=alpha;ctx.drawImage(living,x-width/2,foot-height,width,height);ctx.restore();return;}
       if(phase>0){
-        const data=materialization(im,phase,im===images.golem?'stone':'smoke');
-        ctx.filter = tint ? 'brightness(.56) saturate(.6)' : im===images.golem?'brightness(.84) saturate(0) brightness(.6)':'brightness(.84) saturate(.82)';
+        const data=materialization(im,phase,im===images.golem?'ash':'smoke');
+        ctx.filter = tint ? 'brightness(.56) saturate(.6)' : im===images.golem?'brightness(.82) saturate(.86)':'brightness(.84) saturate(.82)';
         if(phase>=1||still()) ctx.drawImage(im,x-width/2,foot-height,width,height);
+        else if(im===images.golem) ctx.drawImage(data.layer,x-width/2,foot-height,width,height);
         else {
           // Space buckles along the forming silhouette, then becomes perfectly still.
           const slices=48,sh=data.layer.height/slices;
@@ -245,80 +245,90 @@
     ctx.save();ctx.translate(.52,.63);ctx.rotate(twitch+(still()?0:Math.sin(t*2.1)*.014));ctx.translate(-.52,-.63);
     ctx.beginPath();trace(tail);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();ctx.restore();
   }
-  let marblePixels=null;
-  const weaveRoots=new Map();
-  function filamentRoots(x,foot,height,floorX,floorY,floorScale){
-    const key=[x,foot,height,floorX,floorY,floorScale].join(',');
-    if(weaveRoots.has(key))return weaveRoots.get(key);
-    if(!marblePixels&&floorImage.naturalWidth){
-      const c=document.createElement('canvas');c.width=384;c.height=256;
-      const context=c.getContext('2d',{willReadFrequently:true});context.drawImage(floorImage,0,0,384,256);
-      marblePixels=context.getImageData(0,0,384,256).data;
+  function golemState(){
+    const t=still()?0:clock*.001;
+    const arrival=smooth(progress/2.8),clearing=smooth((progress-2.88)/4.32);
+    const body=smooth((progress-2.45)/1.05),awakening=smooth((progress-4.6)/2.2);
+    return {t,arrival,clearing,body,
+      scroll:awakening*(.38+.62*(.5+.5*Math.sin(t*1.13+.43*Math.sin(t*.37)))**2),
+      eyes:awakening*(.54+.46*(.5+.5*Math.sin(t*1.41+.55*Math.sin(t*.51)))**2),
+      shadow:.25+.045*Math.sin(t*1.13+.4)+.015*Math.sin(t*2.31)};
+  }
+  function clipBridgeFloor(floorX,floorY,floorScale){
+    // Walkable surface only: excludes the columns, parapet and lantern bases.
+    const points=[[1000,585],[1530,718],[1530,1018],[535,1018],[475,930],[435,850],[480,780],[595,720],[760,670],[905,620]];
+    ctx.beginPath();points.forEach(([x,y],i)=>ctx[i?'lineTo':'moveTo'](floorX+x*floorScale,floorY+y*floorScale));ctx.closePath();ctx.clip();
+  }
+  function golemShadow(x,foot,height,floorX,floorY,floorScale){
+    const im=images.golem,state=golemState();if(!im?.naturalWidth||!state.body)return;
+    const width=height*im.naturalWidth/im.naturalHeight;
+    const source=window.Manifestations?.render(im,{time:still()?0:clock,reveal:progress/duration,kind:2,opacity:1})||materialization(im,progress/duration,'ash').layer;
+    ctx.save();clipBridgeFloor(floorX,floorY,floorScale);
+    ctx.globalAlpha=state.shadow*state.body;ctx.filter='brightness(0) blur(4px)';
+    // The light comes from the right: the shadow stretches left and toward us.
+    ctx.translate(x,foot-height*.018);ctx.transform(1,0,.48,-.29,0,0);
+    ctx.drawImage(source,-width*.5,-height,width,height);ctx.restore();
+    for(const [u,v] of [[.407,.974],[.738,.986]]){
+      gradient(x-width*.5+width*u,foot-height+height*v,width*.10,height*.013,'2,3,7',state.body*.26);
     }
-    const roots=[],cx=(x-floorX)/floorScale,cy=(foot-floorY)/floorScale;
-    if(marblePixels)for(let py=Math.max(0,Math.floor((cy-16)/4));py<Math.min(256,(cy+100)/4);py+=2){
-      for(let px=Math.max(0,Math.floor((cx-200)/4));px<Math.min(384,(cx+200)/4);px+=3){
-        const index=(py*384+px)*4,r=marblePixels[index],g=marblePixels[index+1],b=marblePixels[index+2];
-        if(g>r+5&&g>b*.82&&g>24)roots.push({x:floorX+px*4*floorScale,y:floorY+py*4*floorScale});
+  }
+  const ashSprites=[];
+  function ashSprite(seed){
+    if(ashSprites[seed])return ashSprites[seed];
+    const c=document.createElement('canvas');c.width=c.height=96;const x=c.getContext('2d'),pixels=x.createImageData(96,96);
+    for(let j=0;j<96;j++)for(let i=0;i<96;i++){
+      const u=(i-48)/48,v=(j-48)/48,field=noise(i/13+seed*5,j/15+seed*3),k=(j*96+i)*4;
+      const a=(1-smooth((Math.hypot(u,v)-.14)/.86))*(.28+.72*field);
+      pixels.data[k]=21+field*31;pixels.data[k+1]=23+field*32;pixels.data[k+2]=28+field*34;pixels.data[k+3]=Math.round(a*230);
+    }
+    x.putImageData(pixels,0,0);ashSprites[seed]=c;return c;
+  }
+  function ashFog(x,foot,height){
+    if(still()||progress>=duration||!images.golem?.naturalWidth)return;
+    const state=golemState(),amount=progress/duration;
+    const fog=window.Manifestations?.render(images.golem,{time:clock,reveal:amount,kind:4,opacity:1});
+    if(fog){ctx.drawImage(fog,x-height*.9,foot-height*1.1,height*2.1,height*1.2);}
+    else{
+      // Layered turbulent puffs retain the right-to-left arrival without WebGL.
+      for(let i=0;i<30;i++){
+        const a=i*2.399,ring=.18+(i%6)*.12;
+        const fade=1-smooth((state.clearing-(1-ring)*.57)/.35);
+        const px=x+height*(1.25*(1-state.arrival)+Math.cos(a)*ring*.56+Math.sin(state.t*.65+i)*.024);
+        const py=foot-height*(.51+Math.sin(a)*ring*.64);
+        const size=height*(.30+(i%4)*.055);
+        ctx.save();ctx.globalAlpha=fade*smooth(progress/.9)*.6;
+        ctx.drawImage(ashSprite(i%4),px-size*.65,py-size*.5,size*1.3,size);ctx.restore();
       }
     }
-    const selected=Array.from({length:28},(_,i)=>roots.length?roots[Math.floor(((i*.61803398875)%1)*roots.length)]:
-      {x:x+Math.sin(i*2.399)*height*.23,y:foot+8+(i%5)*height*.009});
-    weaveRoots.set(key,selected);return selected;
-  }
-  function weaveFromFloor(im,x,foot,height,floorX,floorY,floorScale){
-    if(!im?.naturalWidth||still()||progress<=1.25)return;
-    const release=1-smooth((encounterTime-duration)/1.4);if(release<=0)return;
-    let contour=weaveContours.get(im);
-    if(!contour){
-      const c=document.createElement('canvas');c.width=128;c.height=192;
-      const sc=c.getContext('2d',{willReadFrequently:true});sc.drawImage(im,0,0,128,192);
-      const pixels=sc.getImageData(0,0,128,192).data;
-      contour={left:new Float32Array(192),right:new Float32Array(192)};
-      for(let row=0;row<192;row++){
-        let left=.35,right=.65;for(let col=0;col<128;col++)if(pixels[(row*128+col)*4+3]>90){left=col/128;break;}
-        for(let col=127;col>=0;col--)if(pixels[(row*128+col)*4+3]>90){right=col/128;break;}
-        contour.left[row]=left;contour.right[row]=right;
-      }weaveContours.set(im,contour);
-    }
-    const width=height*im.naturalWidth/im.naturalHeight,time=clock*.001;
-    const rise=smooth((progress-1.25)/5.6),settled=smooth((progress-5.7)/1.5);
-    const envelope=smooth((progress-1.25)/.8)*(1-settled*.7)*release;
-    const light=window.Manifestations?.render(im,{time:clock,reveal:progress/duration,kind:4,opacity:.72});
-    if(light){ctx.save();ctx.globalAlpha=envelope;ctx.drawImage(light,x-width*.5,foot-height,width,height);ctx.restore();}
-    const roots=filamentRoots(x,foot,height,floorX,floorY,floorScale);
+    // Sparse, unequal violet embers are carried by the same crosswind.
     ctx.save();ctx.globalCompositeOperation='screen';
-    roots.forEach((root,i)=>{
-      const reach=clamp(rise+(i-14)*.004),seed=i*2.399,across=.10+.8*((i*.618)%1);
-      const points=[];
-      for(let j=0;j<=36;j++){
-        const u=j/36,v=1-reach*u,row=Math.min(191,Math.max(0,Math.round(v*191)));
-        const target=x-width*.5+width*(contour.left[row]+(contour.right[row]-contour.left[row])*across);
-        const braid=Math.sin(u*12.5-time*.85+seed)*width*.10*Math.sin(u*Math.PI);
-        points.push({x:root.x+(target-root.x)*smooth(u)+braid,y:root.y+(foot-height*reach-root.y)*u});
-      }
-      const tip=points.at(-1),shimmer=.44+.56*Math.sin(time*1.5+seed)**2;
-      const color=ctx.createLinearGradient(root.x,root.y,tip.x,tip.y);
-      color.addColorStop(0,'rgba(141,64,228,.2)');color.addColorStop(.3,'rgba(180,109,246,.7)');
-      color.addColorStop(.84,'rgba(222,174,255,.8)');color.addColorStop(1,'rgba(198,140,251,0)');
-      ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
-      for(let j=1;j<points.length-1;j++){const p=points[j],next=points[j+1];ctx.quadraticCurveTo(p.x,p.y,(p.x+next.x)*.5,(p.y+next.y)*.5);}
-      ctx.strokeStyle=color;ctx.lineWidth=height*(.0008+(i%3)*.00035);ctx.globalAlpha=envelope*shimmer;
-      ctx.shadowColor='#bb7af3';ctx.shadowBlur=3;ctx.stroke();
-    });ctx.restore();
+    for(let i=0;i<26;i++){
+      const seed=i*2.399,cycle=(state.t*(.48+(i%4)*.075)+i*.317)%1;
+      const spark=Math.sin(cycle*Math.PI)**10*smooth(progress/.8)*(1-state.clearing);
+      const sx=x+height*(1.25*(1-state.arrival)+Math.sin(seed)*.40-cycle*.13);
+      const sy=foot-height*(.48+Math.cos(seed)*.43+cycle*.045);
+      const radius=height*(.0012+(i%3)*.00045);
+      gradient(sx,sy,radius*4,radius*2.5,'152,63,235',spark*.47);
+      ctx.globalAlpha=spark*.88;ctx.strokeStyle=i%3?'#a963ed':'#ddb9ff';ctx.lineWidth=radius*.68;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+radius*(2+i%3),sy+radius*.7);ctx.stroke();
+    }ctx.restore();
   }
-
   function golemSpell(x,foot,height){
-    if(progress<6.1)return;
+    if(!images.golem?.naturalWidth)return;
+    const state=golemState();if(!state.scroll&&!state.eyes)return;
     const width=height*images.golem.naturalWidth/images.golem.naturalHeight,left=x-width*.5,top=foot-height;
-    const awakening=smooth((progress-6.1)/1.1),eye=awakening*(still()?.42:.42+.18*Math.sin(clock*.0007)**2);
     ctx.save();ctx.globalCompositeOperation='screen';
-    for(const [u,v] of [[.359,.098],[.410,.086]]){
-      gradient(left+u*width,top+v*height,height*.013,height*.009,'133,68,212',eye*.72);
-      gradient(left+u*width,top+v*height,height*.003,height*.0023,'211,166,255',eye*.76);
+    for(const [u,v] of [[.325,.094],[.369,.081]]){
+      gradient(left+u*width,top+v*height,height*.010,height*.007,'190,9,18',state.eyes*.46);
+      gradient(left+u*width,top+v*height,height*.0024,height*.0019,'255,64,46',state.eyes*.9);
+    }
+    for(const [u,v] of [[.549,.261],[.516,.356]]){
+      gradient(left+u*width,top+v*height,height*.042,height*.065,'123,42,210',state.scroll*.20);
+      gradient(left+u*width,top+v*height,height*.017,height*.027,'181,103,243',state.scroll*.28);
     }
     ctx.restore();
   }
+
   function entwinedFog(x,foot,height,strength,cloud=false){
     if(strength<=0)return;
     ctx.save();ctx.globalCompositeOperation='screen';
@@ -347,7 +357,7 @@
     }
   }
   function revealWave(){
-    if(still()||progress>=2.25)return;
+    if(still()||activeScene.id==='marble'||progress>=2.25)return;
     const p=clamp(progress/2.25),radius=p*Math.hypot(w,h)*1.12,alpha=Math.sin(p*Math.PI)*.19;
     const im=backgrounds[activeScene.id];
     ctx.save();ctx.beginPath();ctx.arc(waveOrigin.x,waveOrigin.y,radius+24,0,Math.PI*2);
@@ -364,8 +374,7 @@
   function render() {
     ctx.clearRect(0, 0, w, h);
     if (!activeScene || !progress) return;
-    const presence = smooth(progress / 1.5), body = smooth((progress - 1.6) / 1.2);
-    const reflection = smooth((progress-2.4) / 2.8), id = activeScene.id;
+    const presence = smooth(progress / 1.5), id = activeScene.id;
     const courtyard=w<600&&id==='fates';
     const scale = courtyard?h*.52/1024:Math.max(w / 1536, h / 1024);
     const position = id === 'blade' ? (w < 600 ? .74 : .66) : id === 'fates' ? (courtyard?.72:.75) : id === 'prologue' && w < 600 ? .67 : .5;
@@ -379,18 +388,10 @@
       const floorScale=mobile?h*.62/1024/scale:1;
       const floorX=mobile?((w-1536*floorScale*scale)*.75-ox)/scale:0;
       const floorY=mobile?-oy/scale:0;
-      const figureWidth=stageHeight*(images.golem?.naturalWidth||960)/(images.golem?.naturalHeight||1440);
-      const floor=window.Manifestations?.render(floorImage,{time:still()?0:clock,reveal:progress/duration,kind:3,opacity:presence,
-        originX:(stageX+figureWidth*.085-floorX)/floorScale/1536,
-        originY:1-(stageFoot-stageHeight*.018-floorY)/floorScale/1024,
-        spread:figureWidth*.19/floorScale/1536});
-      if(floor){ctx.save();if(mobile){const s=h*.62/1024/scale;ctx.translate(((w-1536*s*scale)*.75-ox)/scale,-oy/scale);ctx.scale(s,s);}ctx.drawImage(floor,0,0,1536,1024);ctx.restore();}
-      gradient(stageX, stageFoot - 140, 260, 380, '12,16,27', presence * .16);
-      figure(images.golem, stageX, stageFoot, stageHeight, reflection * .48, true);
-      gradient(stageX, stageFoot - 2, stageHeight * .27, 13, '0,3,9', body * .65);
-      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .84 : 0);
-      weaveFromFloor(images.golem,stageX,stageFoot,stageHeight,floorX,floorY,floorScale);
+      golemShadow(stageX,stageFoot,stageHeight,floorX,floorY,floorScale);
+      figure(images.golem,stageX,stageFoot,stageHeight,golemState().body>0?.98:0);
       golemSpell(stageX,stageFoot,stageHeight);
+      ashFog(stageX,stageFoot,stageHeight);
     } else if (id === 'city') {
       const x = mobile ? stageX : 1200, foot = mobile ? stageFoot : 780;
       const height = mobile ? stageHeight : 495;
@@ -507,6 +508,6 @@
     if(still()) {progress=open?duration:0; for(const p of portraits){p.blinkAt=-1000;drawPortrait(p,0);}render();}
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
   addEventListener('resize',resize);
-  floorImage.onload=()=>{marblePixels=null;weaveRoots.clear();render();};
+  floorImage.onload=()=>render();
   sceneChanged(); resize(); requestAnimationFrame(frame);
 })();

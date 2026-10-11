@@ -32,19 +32,57 @@ window.Manifestations = (() => {
       inside=min(inside,min(1530.-p.x,1018.-p.y));
       return smoothstep(0.,12.,inside);
     }
-    // Two crossing families of thin strands supply both the luminous weave
-    // and the anatomy that accumulates behind it.
-    vec3 weaveField(vec2 p,float age,float amount){
-      float fold=fbm(p*vec2(5.,8.)+vec2(age*.06,-age*.13));
-      float bend=sin(p.y*17.-age*.85)*2.1+sin(p.y*31.+age*.7)*.55+fold*2.;
-      float a=1.-smoothstep(.08,.32,abs(sin(p.x*93.+bend)));
-      float b=1.-smoothstep(.06,.26,abs(sin(p.x*131.-bend*.65+p.y*9.)));
-      float rise=smoothstep(.18,.97,amount)*1.14;
-      float front=smoothstep(-.035,.08,rise-p.y+(fold-.5)*.07);
-      return vec3(max(a,b*.7),fold,front);
+    // Coordinates are measured in creature heights, with Y pointing down.
+    // Smoke and anatomy share the same retreating, turbulent boundary.
+    float ashCover(vec2 p,float age,float amount){
+      float clear=smoothstep(.40,1.,amount);
+      float eddy=fbm(p*5.+vec2(age*.19,-age*.09));
+      float radius=length((p-vec2(0.,.50))/vec2(.53,.65));
+      float boundary=mix(1.45,-.28,clear);
+      return (1.-smoothstep(boundary-.09,boundary+.16,radius+(eddy-.5)*.28))*(1.-smoothstep(.96,1.,amount));
+    }
+    float segmentDistance(vec2 p,vec2 a,vec2 b){
+      vec2 d=b-a;return length(p-a-d*clamp(dot(p-a,d)/dot(d,d),0.,1.));
     }
     void main(){
       float t=time;
+      if(kind>3.5&&kind<4.5){
+        vec2 p=vec2(uv.x*2.1-.9,(1.-uv.y)*1.2-.1);
+        float arrival=smoothstep(.0,.39,reveal);
+        vec2 center=vec2(1.25*(1.-arrival),.51);
+        vec2 flow=vec2(fbm(p*3.+vec2(t*.32,-t*.13)),fbm(p*3.-vec2(t*.21,t*.08)))-.5;
+        float cloud=fbm(p*vec2(5.,7.)+flow*2.4+vec2(t*.46,-t*.12));
+        float folds=fbm(p*vec2(12.,16.)+flow*3.+vec2(t*.63,t*.10));
+        float envelope=1.-smoothstep(.43,1.17,length((p-center)/vec2(.79,.66))+(cloud-.48)*.40+flow.x*.15);
+        float tail=exp(-pow((p.y-.64-flow.y*.13)/.22,2.))*smoothstep(-.12,.36,p.x-center.x)*.34;
+        float coverage=max(envelope,tail)*smoothstep(.0,.14,reveal);
+        coverage*=mix(1.,ashCover(p,t,reveal),smoothstep(.30,.40,reveal));
+        // Charcoal depths and ash-grey turbulent rims, never a luminous blob.
+        float rim=pow(cloud,2.)*.60+folds*.15;
+        vec3 color=mix(vec3(.016,.018,.025),vec3(.27,.28,.30),rim);
+        float alpha=coverage*clamp(.55+cloud*.72+folds*.18,0.,.98)*opacity;
+        alpha*=smoothstep(0.,.045,uv.x)*smoothstep(0.,.045,1.-uv.x);
+        alpha*=smoothstep(0.,.045,uv.y)*smoothstep(0.,.045,1.-uv.y);
+        gl_FragColor=vec4(color,alpha);return;
+      }
+      if(kind>1.5&&kind<2.5){
+        vec2 p=vec2(uv.x,1.-uv.y);
+        vec2 body=vec2((p.x-.5)*.8003,p.y);
+        vec4 source=texture2D(anatomy,uv);
+        float visible=(1.-ashCover(body,t,reveal))*smoothstep(.34,.48,reveal);
+        vec3 color=source.rgb*vec3(.79,.82,.87)+vec3(.004,.005,.011);
+        // Light stays registered to the exposed parchment, not the fingers.
+        float scroll=min(segmentDistance(p,vec2(.550,.250),vec2(.542,.286)),segmentDistance(p,vec2(.520,.342),vec2(.512,.368)));
+        float parchment=1.-smoothstep(.012,.020,scroll);
+        float spell=smoothstep(.64,.94,reveal)*(.38+.62*pow(.5+.5*sin(t*1.13+.43*sin(t*.37)),2.));
+        float fibers=.5+.5*sin(p.y*390.+fbm(p*40.)*8.-t*.9);
+        color=mix(color,color*.65+vec3(.46,.17,.74)+vec3(.18,.10,.21)*fibers,parchment*spell*.88);
+        float eyes=exp(-dot((p-vec2(.325,.094))/vec2(.006,.0035),(p-vec2(.325,.094))/vec2(.006,.0035)));
+        eyes+=exp(-dot((p-vec2(.369,.081))/vec2(.006,.0035),(p-vec2(.369,.081))/vec2(.006,.0035)));
+        float eyePulse=smoothstep(.66,.95,reveal)*(.54+.46*pow(.5+.5*sin(t*1.41+.55*sin(t*.51)),2.));
+        color+=vec3(.93,.025,.012)*eyes*eyePulse;
+        gl_FragColor=vec4(color,source.a*visible*opacity);return;
+      }
       if(kind>7.5){
         vec2 p=vec2(uv.x,1.-uv.y)*vec2(1536.,1024.);
         vec3 original=texture2D(anatomy,uv).rgb;
@@ -148,12 +186,6 @@ window.Manifestations = (() => {
         vec2 posed=uv-vec2(.075,-.04)*(1.-reach)*hand;
         warped=mix(warped,posed+flow*.006,hand*smoothstep(.3,.7,reveal));
       }
-      if(kind>1.5&&kind<2.5){
-        // Advected upward folds distort the assembling edge, then settle into
-        // the creature's anatomy without freezing the translucent surface.
-        vec2 weaveFlow=vec2(fbm(q*1.8+vec2(0.,-t*.5))-.5,fbm(q*.9+vec2(t*.1,-t*.38))-.5);
-        warped=uv+(flow*.003+weaveFlow*vec2(.018,.012)*(1.-reveal))*(1.-smoothstep(.80,.93,uv.y));
-      }
       vec4 shape=texture2D(anatomy,warped);
       float soft=shape.a*.36;
       soft+=texture2D(anatomy,warped+vec2(.022,.015)).a*.16;
@@ -164,14 +196,7 @@ window.Manifestations = (() => {
       float fine=fbm(q*2.4+flow*2.+t*.06);
       float alpha;
       vec3 color;
-      if(kind>3.5){
-        vec3 weave=weaveField(uv,t,reveal);
-        float filament=weave.x,front=weave.z;
-        float silhouette=texture2D(anatomy,uv).a;
-        float pulse=.55+.45*pow(.5+.5*sin(t*1.6-uv.y*19.+weave.y*4.),2.);
-        alpha=silhouette*front*filament*(.28+.4*pulse)*smoothstep(.17,.28,reveal)*opacity;
-        color=mix(vec3(.35,.13,.63),vec3(.80,.61,.98),pulse);
-      }else if(kind>2.5){
+      if(kind>2.5){
         // Recolor the stationary green veins in place. Both geometry and
         // sampling remain fixed: no floor, wall or reflected image is moved.
         vec3 stone=texture2D(anatomy,uv).rgb;
@@ -208,59 +233,6 @@ window.Manifestations = (() => {
           alpha=min(.86,alpha*1.25);
           alpha=mix(alpha,max(alpha,shape.a*.82*reveal),hand*smoothstep(.6,1.,reveal));
         }
-      }else{
-        // The luminous weave accumulates into porous photographic anatomy.
-        vec3 field=weaveField(uv,t,reveal);
-        float strands=field.x;
-        float withinWeave=smoothstep(.06,.65,strands);
-        float settled=smoothstep(.22,.50,reveal-uv.y*.40);
-        float matter=field.z*mix(withinWeave,1.,settled)*smoothstep(.18,.34,reveal);
-        vec2 stoneUV=vec2(.62+uv.x*.24+flow.x*.012,.045+uv.y*.20+flow.y*.009);
-        vec3 stone=texture2D(marble,stoneUV).rgb;
-        float stoneLum=dot(stone,vec3(.21,.72,.07));
-        float veins=clamp(abs(stone.g-stone.r)*2.+abs(stone.b-stone.r)*1.4,0.,1.);
-        float crawl=pow(.5+.5*sin(fbm(q*.85+flow)*17.-t*.62),12.);
-        float gleam=veins*crawl*smoothstep(.34,.69,fine);
-        float sourceLum=dot(shape.rgb,vec3(.21,.72,.07));
-        color=shape.rgb*.82+vec3(.012,.01,.02);
-        // Desaturate the borrowed marble: isolated pearly reflections glide
-        // over charcoal skin instead of coloring the entire body.
-        float pearlescence=pow(.5+.5*sin(fbm(q*.9)*9.-t*.65),8.);
-        color+=vec3(.35,.36,.39)*gleam*(.28+stoneLum*.38);
-        color+=vec3(.07,.065,.095)*pearlescence*(.4+sourceLum);
-        float face=smoothstep(.82,.93,uv.y);
-        // Preserve photographed light and hollows of the peeling prosthetics;
-        // flattening their luminance would turn the face back into a drawing.
-        color=mix(color,shape.rgb*.94+vec3(.008,.004,.015),face*.78);
-        // Retain the photographed oxide on the iron while the cloth stays dark.
-        float rust=smoothstep(.012,.08,shape.r-shape.g*1.3)*smoothstep(.004,.04,shape.g-shape.b*1.12);
-        color=mix(color,shape.rgb*.63+vec3(.014,.009,.006),rust*.78);
-        float leftHand=1.-smoothstep(.6,1.,length((uv-vec2(.300,.443))/vec2(.067,.11)));
-        float scrollHand=1.-smoothstep(.55,1.,length((uv-vec2(.587,.694))/vec2(.086,.057)));
-        float vascular=fbm(uv*vec2(37.,52.)+flow*.3);
-        float veinLine=1.-smoothstep(.009,.036,abs(vascular-.49));
-        float handVeins=max(leftHand,scrollHand)*veinLine*shape.a*smoothstep(.57,.88,reveal);
-        float veinPulse=.35+.65*pow(.5+.5*sin(t*1.27+uv.y*16.+n*3.),2.);
-        color+=vec3(.61,.15,.91)*handVeins*veinPulse;
-        // The generated purple tracery identifies the actual remaining skin.
-        // Its slow shimmer stays registered to the peeling face and neck.
-        float headSkin=1.-smoothstep(.65,1.,length((uv-vec2(.392,.923))/vec2(.072,.058)));
-        float neckSkin=1.-smoothstep(.55,1.,length((uv-vec2(.464,.81))/vec2(.064,.098)));
-        float violetInk=smoothstep(.023,.115,shape.b-max(shape.r*.97,shape.g*1.22));
-        float skinVeins=max(max(headSkin,neckSkin)*violetInk,headSkin*veinLine*.22)*smoothstep(.60,.94,reveal);
-        float venousShimmer=.42+.58*pow(.5+.5*sin(t*1.1+uv.y*17.+n*2.),2.);
-        color+=vec3(.64,.16,.95)*skinVeins*venousShimmer;
-        // Violet lights flicker softly within the skeletal orbital hollows.
-        float eyes=exp(-dot((uv-vec2(.359,.902))/vec2(.012,.005),(uv-vec2(.359,.902))/vec2(.012,.005)));
-        eyes+=exp(-dot((uv-vec2(.410,.914))/vec2(.012,.005),(uv-vec2(.410,.914))/vec2(.012,.005)));
-        float eyeShimmer=.7+.3*sin(t*1.27+2.)*sin(t*.61+1.);
-        color=mix(color,vec3(.56,.17,.84)*eyeShimmer,clamp(eyes*.95,0.,1.)*smoothstep(.62,.9,reveal));
-        float clothWeave=smoothstep(.35,.65,fbm(uv*vec2(21.,32.)));
-        float tendonWeave=smoothstep(.08,.5,field.x)*.6+sourceLum*.8;
-        float skin=max(leftHand,scrollHand);
-        float density=mix(.36+.56*clothWeave,.24+.62*clamp(tendonWeave,0.,1.),skin);
-        density=mix(density,.96,face);
-        alpha=shape.a*matter*density*opacity;
       }
       alpha*=smoothstep(0.,.035,uv.x)*smoothstep(0.,.035,1.-uv.x);
       gl_FragColor=vec4(color,alpha);
@@ -293,7 +265,7 @@ window.Manifestations = (() => {
     if(lost||!im?.naturalWidth)return null;
     const floorReady=Boolean(floor?.naturalWidth);
     if(previous&&previous.im===im&&previous.time===time&&previous.reveal===reveal&&previous.kind===kind&&previous.opacity===opacity&&previous.floor===floor&&previous.floorReady===floorReady&&previous.reach===reach&&previous.orbPower===orbPower&&previous.fracture===fracture&&previous.originX===originX&&previous.originY===originY&&previous.spread===spread)return canvas;
-    const height=kind===5?768:kind===3||kind>=6?512:448,width=Math.round(height*im.naturalWidth/im.naturalHeight);
+    const height=kind===2?720:kind===5?768:kind===3||kind>=6?512:448,width=kind===4?784:Math.round(height*im.naturalWidth/im.naturalHeight);
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);}
     if(!texture(im,0)||!texture(floor?.naturalWidth?floor:im,1))return null;
     gl.uniform1f(uniforms.time,time/1000);gl.uniform1f(uniforms.reveal,reveal);gl.uniform1f(uniforms.kind,kind);gl.uniform1f(uniforms.opacity,opacity);
@@ -306,8 +278,8 @@ window.Manifestations = (() => {
  }
  // Separate buffers avoid rebuilding the GPU drawing surface every time the
  // floor and the figure, which have different aspect ratios, are sampled.
- const figure=createMaterialRenderer(),floor=createMaterialRenderer(),fire=createMaterialRenderer();
+ const figure=createMaterialRenderer(),floor=createMaterialRenderer(),ash=createMaterialRenderer();
  let blade,phoenix,portrait,tunnel;
  if(!figure)return null;
- return {render(im,options={}){if(options.kind===8){if(tunnel===undefined)tunnel=createMaterialRenderer();return tunnel?.render(im,options)||null;}if(options.kind===7){if(portrait===undefined)portrait=createMaterialRenderer();return portrait?.render(im,options)||null;}if(options.kind===6){if(phoenix===undefined)phoenix=createMaterialRenderer();return phoenix?.render(im,options)||null;}if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
+ return {render(im,options={}){if(options.kind===8){if(tunnel===undefined)tunnel=createMaterialRenderer();return tunnel?.render(im,options)||null;}if(options.kind===7){if(portrait===undefined)portrait=createMaterialRenderer();return portrait?.render(im,options)||null;}if(options.kind===6){if(phoenix===undefined)phoenix=createMaterialRenderer();return phoenix?.render(im,options)||null;}if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?ash:options.kind===3?floor:figure)?.render(im,options)||null;}};
 })();

@@ -17,9 +17,9 @@ function rig({reduced=false,living=false,width=1440,height=960}={}){
     const calls=[],paths=[],stack=[];let currentPath=[];
     const x=new Proxy({filter:'none',globalAlpha:1,globalCompositeOperation:'source-over',calls,paths,transforms:[],
       drawImage(...args){calls.push({args,filter:this.filter,alpha:this.globalAlpha,transforms:this.transforms.slice()})},
-      translate(...args){this.transforms.push(['translate',...args])},rotate(...args){this.transforms.push(['rotate',...args])},scale(...args){this.transforms.push(['scale',...args])},
+      transform(...args){this.transforms.push(['transform',...args])},translate(...args){this.transforms.push(['translate',...args])},rotate(...args){this.transforms.push(['rotate',...args])},scale(...args){this.transforms.push(['scale',...args])},
       clearRect(){calls.length=0;paths.length=0;currentPath=[]},
-      beginPath(){currentPath=[]},arc(...args){currentPath.push({kind:'arc',args})},
+      beginPath(){currentPath=[]},moveTo(...args){currentPath.push({kind:'move',args})},lineTo(...args){currentPath.push({kind:'line',args})},clip(){paths.push({segments:currentPath.slice(),clip:true})},arc(...args){currentPath.push({kind:'arc',args})},
       bezierCurveTo(...args){currentPath.push({kind:'bezier',args})},
       quadraticCurveTo(...args){currentPath.push({kind:'quadratic',args})},
       closePath(){currentPath.push({kind:'close'})},
@@ -38,7 +38,7 @@ function rig({reduced=false,living=false,width=1440,height=960}={}){
     querySelectorAll(){return []},createElement:canvas};
   class Image{constructor(){this.naturalWidth=960;this.naturalHeight=1440;this.width=960;this.height=1440;}set src(v){this.url=v;this.onload?.()}get src(){return this.url}}
   const materials=[];
-  const window=living?{Manifestations:{render(im,options){materials.push({url:im.url,...options});return {url:im.url,width:373,height:560}}}}:{};
+  const window=living?{Manifestations:{render(im,options){materials.push({url:im.url,...options});return {url:im.url,kind:options.kind,width:373,height:560}}}}:{};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../otherworld.js'),'utf8'),{
     document,window,Image,innerWidth:width,innerHeight:height,devicePixelRatio:1,
     matchMedia:()=>({matches:reduced}),MutationObserver:class{constructor(f){observer=f}observe(){}},
@@ -50,7 +50,7 @@ function rig({reduced=false,living=false,width=1440,height=960}={}){
     pause(){classes.add('paused');observer()},
     get body(){return contexts[0].calls.filter(c=>/^brightness\(\.(84|56)\)/.test(c.filter))},
     get reflections(){return contexts[0].calls.filter(c=>c.filter.includes('saturate(.5) brightness(.9)'))},
-    get masks(){return contexts.filter(c=>c.calls.some(call=>call.args[0]?.url?.includes('golem-woven'))).length}
+    get masks(){return contexts.filter(c=>c.calls.some(call=>call.args[0]?.url?.includes('golem-ash'))).length}
   };
 }
 test('the city orb waits for the reaching hand, shimmers, and disappears on return',()=>{
@@ -66,29 +66,32 @@ test('the city orb waits for the reaching hand, shimmers, and disappears on retu
   const still=staticRig.materials.at(-1);assert.equal(still.reach,1);assert.ok(still.orbPower>0);
 });
 
-test('stationary marble recoloring precedes threads and body',()=>{
+test('the ash wind and embers arrive before the golem and cast shadow',()=>{
  const r=rig({living:true});r.button.click();r.advance(900);
- assert.ok(r.materials.some(m=>m.kind===3&&m.reveal>0&&m.reveal<1));
+ assert.ok(r.materials.some(m=>m.kind===4&&m.reveal>0&&m.reveal<1));
+ assert.ok(!r.materials.some(m=>m.kind===2||m.kind===3));
  assert.equal(r.reflections.length,0);
- assert.ok(!r.materials.some(m=>m.kind===4));
- assert.ok(!r.materials.some(m=>m.kind===2&&m.reveal<1));
- r.advance(2600);
+ assert.ok(r.main.paths.some(p=>p.composite==='screen'&&p.segments.some(s=>s.kind==='line')));
+ r.advance(3000);
  assert.ok(r.materials.some(m=>m.kind===2&&m.reveal>0&&m.reveal<1));
- assert.ok(!r.materials.some(m=>[9,10].includes(m.kind)));
- assert.ok(!r.main.calls.some(c=>/bridge-atlas|gargoyle/.test(c.args[0]?.url||'')));
+ assert.ok(r.main.calls.some(c=>c.filter==='brightness(0) blur(4px)'));
+ assert.ok(!r.materials.some(m=>[3,9,10].includes(m.kind)));
 });
 
-test('body and filaments share the weave clock and free threads settle afterward',()=>{
- const r=rig({living:true});r.button.click();r.advance(3600);
- const body=r.materials.filter(m=>m.kind===2&&m.reveal<1).at(-1);
- const flame=r.materials.filter(m=>m.kind===4).at(-1);
- assert.equal(body.reveal,flame.reveal);assert.equal(body.time,flame.time);
- assert.equal(flame.opacity,.72);
- const draw=r.main.calls.find(c=>c.args[0]?.url?.includes('golem-woven')&&c.filter==='none'&&c.args.length===5);
- assert.equal(draw.alpha,.84);
- r.advance(5600);r.materials.length=0;r.advance(100);
- assert.ok(!r.materials.some(m=>m.kind===4));
- assert.ok(r.materials.some(m=>m.kind===3&&m.reveal===1));
+test('the body and clearing veil share coordinates and time, then smoke disappears',()=>{
+ const r=rig({living:true});r.button.click();r.advance(4400);
+ const body=r.materials.filter(m=>m.kind===2).at(-1),fog=r.materials.filter(m=>m.kind===4).at(-1);
+ assert.equal(body.reveal,fog.reveal);assert.equal(body.time,fog.time);
+ const draw=r.main.calls.find(c=>c.args[0]?.kind===2&&c.filter==='none');
+ assert.equal(draw.alpha,.98);
+ const bodyIndex=r.main.calls.findIndex(c=>c.args[0]?.kind===2&&c.filter==='none');
+ assert.ok(r.main.calls.findIndex(c=>c.args[0]?.kind===4)>bodyIndex,'foreground mist covers the emerging body');
+ r.advance(3600);r.materials.length=0;r.advance(100);
+ assert.ok(!r.materials.some(m=>m.kind===4||m.kind===3));
+ assert.ok(r.materials.some(m=>m.kind===2&&m.reveal===1));
+ const shadow=()=>r.main.calls.find(c=>c.filter==='brightness(0) blur(4px)');
+ const first=shadow().alpha;r.advance(800);assert.notEqual(shadow().alpha,first,'cast shadow shimmers after the fog clears');
+ assert.ok(shadow().transforms.some(t=>t[0]==='transform'&&t[4]<0),'shadow projects toward the floor');
 });
 
 test('the tunnel uses living wall light without a distant character',()=>{
@@ -101,13 +104,13 @@ test('the tunnel uses living wall light without a distant character',()=>{
   r.button.click();assert.equal(r.main.calls.length,0);
 });
 
-test('floor recoloring follows the golem position on desktop and mobile',()=>{
+test('the golem shadow is clipped to the bridge on desktop and mobile',()=>{
  for(const [width,height] of [[1440,960],[390,844]]){
-  const r=rig({living:true,width,height});r.button.click();r.advance(2300);
-  const floor=r.materials.filter(m=>m.kind===3).at(-1);
-  assert.ok(floor.originX>0&&floor.originX<1);
-  assert.ok(floor.originY>0&&floor.originY<.5);
-  assert.ok(floor.spread>0&&floor.spread<.1);
+  const r=rig({living:true,width,height});r.button.click();r.advance(7800);
+  const shadow=r.main.calls.find(c=>c.filter==='brightness(0) blur(4px)');assert.ok(shadow);
+  const clip=r.main.paths.find(p=>p.clip);assert.equal(clip.segments.length,11);
+  const projected=shadow.transforms.find(t=>t[0]==='transform');assert.equal(projected[3],.48);assert.equal(projected[4],-.29);
+  assert.ok(clip.segments.every(s=>s.args?.every(Number.isFinite)??true));
  }
 });
 
@@ -134,15 +137,16 @@ test('returning clears each new encounter and rapid reversals replay the entranc
 test('page turning holds the entrance and moving to a new scene restarts it',()=>{
   const r=rig({living:true});r.page.style.display='block';r.button.click();r.advance(2500);
   assert.equal(r.main.calls.length,0);r.page.style.display='none';r.advance(8000);
-  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woven')));
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-ash')));
   r.scene('between');assert.equal(r.main.calls.length,0);r.advance(800);assert.ok(r.materials.some(m=>m.kind===8));
 });
 
-test('reduced motion and pause show the porous golem without moving threads',()=>{
+test('reduced motion and pause show the completed golem without wind',()=>{
   for(const reduced of [true,false]){
     const r=rig({reduced,living:true});if(!reduced)r.pause();r.button.click();
-    assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woven')&&c.args.length===5));
+    assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-ash')&&c.args.length===5));
     assert.equal(r.materials.filter(m=>m.kind===2).at(-1).time,0);
+    assert.ok(!r.materials.some(m=>m.kind===4));
     r.scene('between');assert.equal(r.materials.filter(m=>m.kind===8).at(-1).time,0);
     r.button.click();assert.equal(r.main.calls.length,0);
   }
@@ -150,7 +154,7 @@ test('reduced motion and pause show the porous golem without moving threads',()=
 
 test('the golem and tunnel still render without WebGL',()=>{
   const r=rig({reduced:true});r.button.click();
-  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woven')));
+  assert.ok(r.main.calls.some(c=>c.args[0]?.url?.includes('golem-ash')));
   r.scene('between');r.advance(3000);assert.ok(!r.main.calls.some(c=>c.args[0]?.url?.includes('golem-woman')));
 });
 
