@@ -7,7 +7,7 @@ const path=require('node:path');
 // Run the actual renderer with a canvas spy and a controllable animation clock.
 // This verifies sequencing and cancellation without replacing the reveal logic.
 function rig({reduced=false,living=false}={}){
-  const scenes={marble:{id:'marble',append(){}},city:{id:'city',append(){}}};
+  const scenes={marble:{id:'marble',append(){}},city:{id:'city',append(){}},fates:{id:'fates',append(){}}};
   let active=scenes.marble,raf,time=0,observer;
   const classes=new Set(),label={},status={},announcement={},page={style:{display:'none'}};
   const button={attributes:{},addEventListener(_,f){this.click=f},setAttribute(k,v){this.attributes[k]=v},querySelector(){return label},getBoundingClientRect(){return {x:1050,y:46,width:230,height:48}}};
@@ -51,6 +51,16 @@ function rig({reduced=false,living=false}={}){
     get masks(){return contexts.filter(c=>c.calls.some(call=>call.args[0]?.url?.includes('golem-bombo'))).length}
   };
 }
+test('the courtyard lantern ignites before a phoenix replaces the mist visitor',()=>{
+  const r=rig({living:true});r.scene('fates');r.button.click();r.advance(900);
+  assert.equal(r.main.calls.filter(c=>c.args[0]?.url?.includes('golden-phoenix')).length,0);
+  r.advance(5200);
+  assert.equal(r.main.calls.filter(c=>c.args[0]?.url?.includes('golden-phoenix')).length,3,'two wings and a separate body are drawn');
+  assert.ok(!r.materials.some(m=>m.url.includes('golem-woman')),'no mist visitor should appear in the courtyard');
+  r.pause();assert.equal(r.main.calls.filter(c=>c.args[0]?.url?.includes('golden-phoenix')).length,3);
+  r.button.click();assert.equal(r.main.calls.length,0);
+});
+
 test('the city orb waits for the reaching hand, shimmers, and disappears on return',()=>{
   const r=rig({living:true});r.scene('city');r.button.click();r.advance(3300);
   const latest=()=>r.materials.filter(m=>m.url.includes('djinn-orb')).at(-1);
@@ -106,17 +116,22 @@ test('the living material assembles upwards and keeps flowing after the body has
   r.advance(800);const next=r.materials.at(-1);
   assert.equal(first.reveal,1);assert.equal(next.reveal,1);assert.ok(next.time>first.time,'the material keeps flowing once formed');
 });
-test('spectral flames remain active from the first floor gathering through the completed golem',()=>{
+test('spectral flames form the golem, then extinguish before periodic floor fractures',()=>{
   const r=rig({living:true});r.button.click();let elapsed=0,previousTime=-1;
-  for(const stage of [800,1400,6800,9000,9800]){
+  for(const stage of [800,1400,6800,7500]){
     r.materials.length=0;r.advance(stage-elapsed);elapsed=stage;
     const flame=r.materials.filter(m=>m.kind===4).at(-1);
     assert.ok(flame,`spectral flames should render at ${stage}ms`);
     assert.ok(flame.opacity>0,`spectral flames should remain visible at ${stage}ms`);
     assert.ok(flame.reveal>0&&flame.reveal<=1,'the flames follow the assembly progress');
     assert.ok(flame.time>previousTime,'the flame material must keep moving');previousTime=flame.time;
-    if(stage>=9000)assert.equal(flame.reveal,1,'the completed silhouette retains its flame material');
   }
+  r.advance(1600);r.materials.length=0;r.advance(100);
+  assert.ok(!r.materials.some(m=>m.kind===4),'flames must disappear after assembly');
+  const floor=r.materials.find(m=>m.kind===3);assert.ok(floor.fracture>0,'floor fractures start after assembly');
+  assert.ok(floor.originX>0&&floor.originX<1&&floor.originY>0&&floor.originY<.5);
+  r.materials.length=0;r.pause();assert.ok(!r.materials.some(m=>m.kind===4));
+  assert.equal(r.materials.filter(m=>m.kind===3).at(-1).fracture,-1,'pause disables propagating fractures');
 });
 test('rapid reversals do not leave an apparition stuck on the canvas',()=>{
   const r=rig();r.button.click();r.advance(800);r.button.click();r.advance(250);r.button.click();r.advance(900);r.button.click();r.advance(2000);

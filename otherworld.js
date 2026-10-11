@@ -26,10 +26,10 @@
     blade: 'Заклятие оставляет след даже в отражении.',
     marble: 'Сначала — отражение. Потом — тот, кто его отбрасывает.',
     between: 'В переходе ты не один.',
-    fates: 'Даже знакомый двор хранит чужое присутствие.',
+    fates: 'В свете старого фонаря просыпается феникс.',
     read: 'Иная Москва остаётся по ту сторону страниц.'
   };
-  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-orb'})) {
+  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'golden-phoenix'})) {
     const im = new Image();
     im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'stone':'smoke');render();};
     im.onerror = () => { status.textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
@@ -193,8 +193,44 @@
     }
     ctx.restore();
   }
+  function goldenPhoenix(){
+    const im=images.phoenix;if(!im?.naturalWidth)return;
+    const t=still()?0:clock*.001,lampX=746,lampY=423;
+    const kindle=smooth(progress/1.4),form=smooth((progress-1.25)/3.9);
+    const flare=kindle*(1-form*.69),breath=.84+.16*Math.sin(t*1.1)**2;
+    ctx.save();ctx.globalCompositeOperation='screen';
+    gradient(lampX,lampY,48+flare*35,62+flare*32,'255,179,57',flare*.67*breath);
+    gradient(lampX,lampY,12+flare*11,18+flare*16,'255,232,161',kindle*.81);
+    gradient(lampX,623,48,8,'255,184,73',kindle*.19*breath);
+    const size=52+form*94,cx=lampX+Math.sin(t*.52)*form*3,cy=lampY-form*41+Math.sin(t*2.5)*form*2;
+    if(!still()&&form<1){
+      for(let i=0;i<7;i++){
+        const sway=Math.sin(t*1.7+i*1.9),side=i%2?1:-1;
+        ctx.beginPath();ctx.moveTo(lampX,lampY+6);
+        ctx.bezierCurveTo(lampX+side*32*sway,lampY-28,cx+side*size*.4,cy-22,cx+side*size*.31*form,cy-size*.12);
+        ctx.strokeStyle=`rgba(255,${185+i*7},94,${kindle*(1-form)*.22})`;
+        ctx.lineWidth=1.1+(i%3)*.7;ctx.shadowColor='#f4b553';ctx.shadowBlur=7;ctx.stroke();
+      }
+    }
+    ctx.shadowBlur=0;gradient(cx,cy-size*.06,size*.64,size*.68,'255,191,74',form*.14*breath);
+    ctx.restore();if(form<=0)return;
+    const source=form<1?materialization(im,form,'smoke').layer:im;
+    const wings=[[[0,0],[.39,0],[.39,.15],[.46,.30],[.47,.42],[.43,.54],[0,.54]],[[.63,0],[1,0],[1,.54],[.57,.54],[.56,.36],[.60,.27]]];
+    const trace=points=>{ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++)ctx.lineTo(...points[i]);ctx.closePath();};
+    ctx.save();ctx.translate(cx-size*.5,cy-size*.5);ctx.scale(size,size);ctx.globalAlpha=.9*kindle;
+    const beat=still()?0:Math.sin(t*4.3),fold=still()?1:.74+.26*Math.sin(t*4.3+.45);
+    // Wing roots remain attached to the chest; only the feather fans rotate.
+    wings.forEach((points,i)=>{
+      const root=i===0?.465:.57,side=i===0?-1:1;
+      ctx.save();ctx.translate(root,.33);ctx.rotate(side*(beat*.22));ctx.scale(1,fold);ctx.translate(-root,-.33);
+      ctx.beginPath();trace(points);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();
+    });
+    ctx.beginPath();ctx.rect(0,0,1,1);wings.forEach(trace);ctx.clip('evenodd');ctx.drawImage(source,0,0,1,1);ctx.restore();
+  }
   function assembleFromFloor(im,x,foot,height){
     if(!im?.naturalWidth||still()||progress<=0)return;
+    const extinguish=1-smooth((encounterTime-duration)/1.1);
+    if(extinguish<=.001)return;
     // These are connected, soft-edged sheets of shadow. A sampled alpha contour
     // lets the rising tongues share the creature's anatomy instead of glittering
     // around a finished photograph. The same stage coordinates work on mobile.
@@ -215,13 +251,11 @@
     }
     const width=height*im.naturalWidth/im.naturalHeight,time=clock*.001;
     const completion=smooth((progress-5.6)/(duration-5.6));
-    // Fire remains a moving material through the last fragments of the head,
-    // then breathes more quietly within the completed creature. Its opacity
-    // never vanishes at the point where the body finishes forming.
-    const envelope=smooth(progress/.32)*(1-completion*.54);
+    // Finish the head, then let every flame fade away over the next second.
+    const envelope=smooth(progress/.32)*(1-completion*.54)*extinguish;
     const fire=window.Manifestations?.render(im,{time:clock,reveal:progress/duration,kind:4,opacity:1,floor:floorImage});
     if(fire){
-      ctx.save();ctx.globalAlpha=smooth(progress/.2)*(.9-completion*.55);
+      ctx.save();ctx.globalAlpha=smooth(progress/.2)*(.9-completion*.55)*extinguish;
       ctx.drawImage(fire,x-width*.5,foot-height,width,height);ctx.restore();
     }
     const edgeAt=(side,v)=>{
@@ -350,10 +384,10 @@
     ctx.save();ctx.beginPath();ctx.arc(waveOrigin.x,waveOrigin.y,radius+24,0,Math.PI*2);
     ctx.arc(waveOrigin.x,waveOrigin.y,Math.max(0,radius-24),0,Math.PI*2,true);ctx.clip('evenodd');
     if(im?.naturalWidth){
-      const terrace=w<600&&activeScene.id==='marble',tunnel=w<600&&activeScene.id==='between',s=terrace?h*.62/im.height:tunnel?h*.44/im.height:Math.max(w/im.width,h/im.height);
-      const position=terrace?.75:tunnel?.83:activeScene.id==='blade'?(w<600?.69:.66):activeScene.id==='fates'?.75:activeScene.id==='prologue'&&w<600?.67:.5;
+      const terrace=w<600&&activeScene.id==='marble',tunnel=w<600&&activeScene.id==='between',courtyard=w<600&&activeScene.id==='fates',s=terrace?h*.62/im.height:tunnel?h*.44/im.height:courtyard?h*.52/im.height:Math.max(w/im.width,h/im.height);
+      const position=terrace?.75:tunnel?.83:courtyard?.72:activeScene.id==='blade'?(w<600?.74:.66):activeScene.id==='fates'?.75:activeScene.id==='prologue'&&w<600?.67:.5;
       ctx.globalAlpha=alpha;ctx.filter='blur(2px) saturate(.5)';
-      ctx.drawImage(im,(w-im.width*s)*position-3,terrace?0:tunnel?h*.12:(h-im.height*s)*.5,im.width*s+6,im.height*s+6);
+      ctx.drawImage(im,(w-im.width*s)*position-3,terrace?0:(tunnel||courtyard)?h*.12:(h-im.height*s)*.5,im.width*s+6,im.height*s+6);
     }
     ctx.filter='none';ctx.globalAlpha=1;ctx.strokeStyle=`rgba(202,183,222,${alpha})`;ctx.lineWidth=1.3;
     ctx.beginPath();ctx.arc(waveOrigin.x,waveOrigin.y,radius,0,Math.PI*2);ctx.stroke();ctx.restore();
@@ -363,24 +397,33 @@
     if (!activeScene || !progress) return;
     const presence = smooth(progress / 1.5), body = smooth((progress - 2.3) / 1.2);
     const reflection = smooth((progress-.25) / 1.15), id = activeScene.id;
-    const scale = Math.max(w / 1536, h / 1024);
-    const position = id === 'blade' ? (w < 600 ? .69 : .66) : id === 'fates' ? .75 : id === 'prologue' && w < 600 ? .67 : .5;
-    const ox = (w - 1536 * scale) * position, oy = (h - 1024 * scale) * .5;
+    const courtyard=w<600&&id==='fates';
+    const scale = courtyard?h*.52/1024:Math.max(w / 1536, h / 1024);
+    const position = id === 'blade' ? (w < 600 ? .74 : .66) : id === 'fates' ? (courtyard?.72:.75) : id === 'prologue' && w < 600 ? .67 : .5;
+    const ox = (w - 1536 * scale) * position, oy = courtyard?h*.12:(h - 1024 * scale) * .5;
     ctx.save(); ctx.translate(ox, oy); ctx.scale(scale, scale);
     const mobile = w < 600;
     const stageX = mobile ? (w * .74 - ox) / scale : 1140;
     const stageFoot = mobile ? (h * (id === 'marble' ? .46 : .51) - oy) / scale : 757;
     const stageHeight = mobile ? h * (id === 'marble' ? .32 : .37) / scale : 505;
     if (id === 'marble') {
-      const floor=window.Manifestations?.render(floorImage,{time:still()?0:clock,reveal:progress/duration,kind:3,opacity:presence});
+      const floorScale=mobile?h*.62/1024/scale:1;
+      const floorX=mobile?((w-1536*floorScale*scale)*.75-ox)/scale:0;
+      const floorY=mobile?-oy/scale:0;
+      const figureWidth=stageHeight*(images.golem?.naturalWidth||960)/(images.golem?.naturalHeight||1440);
+      const fracture=!still()&&open&&encounterTime>duration+.9?encounterTime-duration-.9:-1;
+      const floor=window.Manifestations?.render(floorImage,{time:still()?0:clock,reveal:progress/duration,kind:3,opacity:presence,fracture,
+        originX:(stageX+figureWidth*.085-floorX)/floorScale/1536,
+        originY:1-(stageFoot-stageHeight*.018-floorY)/floorScale/1024,
+        spread:figureWidth*.19/floorScale/1536});
       if(floor){ctx.save();if(mobile){const s=h*.62/1024/scale;ctx.translate(((w-1536*s*scale)*.75-ox)/scale,-oy/scale);ctx.scale(s,s);}ctx.drawImage(floor,0,0,1536,1024);ctx.restore();}
-      gradient(stageX, stageFoot - 140, 260, 380, '12,16,27', presence * .3);
+      gradient(stageX, stageFoot - 140, 260, 380, '12,16,27', presence * .16);
       figure(images.golem, stageX, stageFoot, stageHeight, reflection * .72, true);
       gradient(stageX, stageFoot - 2, stageHeight * .27, 13, '0,3,9', body * .65);
-      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .97 : 0);
+      figure(images.golem, stageX, stageFoot, stageHeight, body > 0 ? .76 : 0);
       assembleFromFloor(images.golem,stageX,stageFoot,stageHeight);
       golemSpell(stageX,stageFoot,stageHeight);
-      mist(stageX, stageFoot, stageHeight, presence);
+      mist(stageX, stageFoot, stageHeight, presence*(1-smooth((progress-5.8)/1.4)*.72));
       // Rings disturb the reflection before a body has materialized.
       if (progress < duration) for (let i = 0; i < 3; i++) {
         const p = clamp((progress - i * .42) / 4.8);
@@ -410,10 +453,7 @@
       figure(images.golemsha, x, foot, mobile ? h*.14/scale : 190, .76, false, true);
       mist(x, foot, 180, presence);
     } else if (id === 'fates') {
-      // The visitor stays behind the bear, inside the distant courtyard arch.
-      shadow(images.golemsha,706,677,205,presence*.3*(1-smooth((progress-2)/2)));
-      figure(images.golemsha, 706, 677, 205, .76, false, true);
-      mist(706, 677, 190, presence);
+      goldenPhoenix();
     } else if (id === 'blade') {
       // A breath of vapor hangs close to the metal, without drawing a new line.
       mist(830, 705, 190, presence*.7);

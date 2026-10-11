@@ -13,12 +13,52 @@ window.Manifestations = (() => {
     varying vec2 uv;
     uniform sampler2D anatomy;
     uniform sampler2D marble;
-    uniform float time, reveal, kind, opacity, reach, orbPower;
+    uniform float time, reveal, kind, opacity, reach, orbPower, fracture, originX, originY, spread;
     float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
     float fbm(vec2 p){float a=.5,n=0.;for(int i=0;i<4;i++){n+=a*noise(p);p=mat2(1.62,1.17,-1.17,1.62)*p+vec2(3.1,7.4);a*=.5;}return n;}
     void main(){
       float t=time;
+      if(kind>4.5){
+        // Work in the original illustration's coordinates so the smoke stays
+        // behind the blade and the light remains inside the actual gemstones.
+        vec2 p=vec2(uv.x,1.-uv.y)*vec2(1536.,1024.);
+        vec2 drift=vec2(fbm(p*.005+vec2(t*.09,-t*.12)),fbm(p*.007+vec2(-t*.07,t*.1)))-.5;
+        float cloud=fbm(p*.012+drift*2.6+vec2(t*.1,-t*.2));
+        vec3 original=texture2D(anatomy,uv).rgb;
+        vec3 advected=texture2D(anatomy,uv+drift*vec2(.012,.021)).rgb;
+        float violet=smoothstep(.01,.105,max(original.b-original.g,advected.b-advected.g));
+        violet*=smoothstep(.0,.065,max(original.r-original.g,advected.r-advected.g));
+        float leftCloud=exp(-dot((p-vec2(900.,365.))/vec2(100.,190.),(p-vec2(900.,365.))/vec2(100.,190.)));
+        float rightCloud=exp(-dot((p-vec2(1035.,651.))/vec2(111.,194.),(p-vec2(1035.,651.))/vec2(111.,194.)));
+        float lowCloud=exp(-dot((p-vec2(1390.,849.))/vec2(133.,110.),(p-vec2(1390.,849.))/vec2(133.,110.)));
+        float metalBand=smoothstep(1330.,1385.,p.x+p.y)*(1.-smoothstep(1535.,1615.,p.x+p.y));
+        float smoke=clamp(leftCloud+rightCloud+lowCloud,0.,1.)*violet*(1.-metalBand);
+        float current=pow(.5+.5*sin(cloud*13.+t*.43+drift.y*3.),2.);
+        vec3 mistColor=mix(vec3(.28,.10,.47),vec3(.69,.43,.87),cloud);
+        float smokeAlpha=smoke*(.10+.45*current);
+        vec3 result=mistColor;float coverage=smokeAlpha;
+        // Both purple insets belong to the hilt; the larger gem is the focus.
+        for(int i=0;i<2;i++){
+          vec2 center=i==0?vec2(1189.,299.):vec2(1442.,74.);
+          vec2 size=i==0?vec2(30.,31.):vec2(18.,20.);
+          vec2 local=(p-center)/size;float radius=length(local);
+          float power=.34+.66*pow(.5+.5*sin(t*.91+.48*sin(t*.37)+float(i)*.65),2.);
+          float interior=(1.-smoothstep(.84,1.,radius));
+          float facet=fbm(local*2.5+drift+vec2(t*.22,-t*.17));
+          float stream=pow(.5+.5*sin(facet*17.-t*.58),7.);
+          float core=exp(-dot(local-vec2(-.2,-.23),local-vec2(-.2,-.23))*3.1);
+          vec3 gem=mix(vec3(.20,.035,.40),vec3(.64,.32,.92),facet);
+          gem+=vec3(.38,.25,.47)*core+vec3(.27,.15,.35)*stream;
+          float glow=interior*(.35+.57*power)*(i==0?1.:.7);
+          float halo=exp(-radius*1.7)*power*.17;
+          float nextAlpha=glow+halo*(1.-glow);
+          vec3 contribution=mix(vec3(.42,.12,.72),gem,glow/max(.001,nextAlpha));
+          result=(result*coverage*(1.-nextAlpha)+contribution*nextAlpha)/max(.001,coverage*(1.-nextAlpha)+nextAlpha);
+          coverage=coverage*(1.-nextAlpha)+nextAlpha;
+        }
+        gl_FragColor=vec4(result,coverage*opacity);return;
+      }
       vec2 q=uv*vec2(4.2,6.5);
       vec2 flow=vec2(fbm(q+vec2(t*.13,-t*.09)),fbm(q+vec2(-t*.11,t*.16)+4.7))-.5;
       vec2 gathered=uv;
@@ -88,7 +128,34 @@ window.Manifestations = (() => {
         float gathering=exp(-distance*(3.+reveal*9.));
         float lip=pow(.5+.5*sin(flowPhase+.38),14.)*(1.-crawling*.6);
         color=vec3(.028,.022,.044)+vec3(.15,.145,.17)*lip;
-        alpha=vein*floorMask*crawling*(.19+gathering*.64)*opacity;
+        alpha=vein*floorMask*crawling*(.19+gathering*.64)*opacity*(1.-smoothstep(.82,1.,reveal));
+        if(fracture>=0.){
+          float age=mod(fracture,9.8);
+          float burst=smoothstep(0.,.45,age)*(1.-smoothstep(3.8,5.1,age));
+          float cracks=0.,halo=0.;
+          for(int i=0;i<2;i++){
+            vec2 root=vec2(originX+(i==0?-spread:spread),originY);
+            vec2 delta=(uv-root)*vec2(1.,1.65);
+            float radius=length(delta);
+            float angle=atan(delta.y,delta.x);
+            // Fine branching paths bend with the photographed marble's veins.
+            float grain=fbm(uv*23.+stone.gb*1.8);
+            float branch=abs(sin(angle*5.+grain*3.7+radius*12.+float(i)*2.4));
+            float offshoot=abs(sin(angle*11.-radius*25.+grain*5.));
+            float line=min(branch,offshoot+.018);
+            float front=max(0.,age-float(i)*.23)*.155;
+            float arrive=smoothstep(-.016,.016,front-radius);
+            float trail=exp(-max(0.,front-radius)*7.);
+            float limit=1.-smoothstep(.43,.64,radius);
+            float mineral=.48+.52*smoothstep(.04,.35,vein);
+            float shimmer=.66+.34*sin(radius*74.-t*2.1+grain*6.);
+            cracks+=(1.-smoothstep(.012,.047,line))*arrive*trail*limit*mineral*shimmer;
+            halo+=(1.-smoothstep(.025,.13,line))*arrive*trail*limit*mineral;
+          }
+          float gleam=clamp(cracks,0.,1.);
+          color=mix(vec3(.25,.18,.39),vec3(.81,.75,.91),gleam);
+          alpha=(gleam*.88+halo*.15)*burst*floorMask*opacity;
+        }
       }else if(kind<1.5){
         // Wisps entwine, drift through the silhouette and unravel at its edges.
         float gather=smoothstep(.0,.55,reveal);
@@ -126,7 +193,7 @@ window.Manifestations = (() => {
         float flameHeight=smoothstep(0.,.32,reveal)*1.18;
         float tongueFront=smoothstep(-.12,.18,flameHeight-uv.y+(flame-.5)*.22);
         float flameDensity=smoothstep(.21,.67,flame)*(.4+.6*n);
-        float vapor=(tongue+soft*.13)*tongueFront*flameDensity*(1.-.73*reveal);
+        float vapor=(tongue+soft*.13)*tongueFront*flameDensity*(1.-smoothstep(.88,1.,reveal));
         vec2 stoneUV=vec2(fract(.18+uv.x*.59+flow.x*.05+t*.004),.015+uv.y*.43+flow.y*.02);
         vec3 stone=texture2D(marble,stoneUV).rgb;
         float stoneLum=dot(stone,vec3(.21,.72,.07));
@@ -180,7 +247,7 @@ window.Manifestations = (() => {
   gl.useProgram(program);
   const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
   const pos=gl.getAttribLocation(program,'position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-  const uniforms=Object.fromEntries(['anatomy','marble','time','reveal','kind','opacity','reach','orbPower'].map(n=>[n,gl.getUniformLocation(program,n)]));
+  const uniforms=Object.fromEntries(['anatomy','marble','time','reveal','kind','opacity','reach','orbPower','fracture','originX','originY','spread'].map(n=>[n,gl.getUniformLocation(program,n)]));
   gl.uniform1i(uniforms.anatomy,0);gl.uniform1i(uniforms.marble,1);
   const textures=new WeakMap();
   function texture(im,unit){
@@ -196,23 +263,25 @@ window.Manifestations = (() => {
     return true;
   }
   let lost=false,previous=null;canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();lost=true;});
-  return {render(im,{time=0,reveal=1,kind=0,opacity=1,floor=null,reach=-1,orbPower=0}={}){
+  return {render(im,{time=0,reveal=1,kind=0,opacity=1,floor=null,reach=-1,orbPower=0,fracture=-1,originX=.742,originY=.262,spread=.044}={}){
     if(lost||!im?.naturalWidth)return null;
     const floorReady=Boolean(floor?.naturalWidth);
-    if(previous&&previous.im===im&&previous.time===time&&previous.reveal===reveal&&previous.kind===kind&&previous.opacity===opacity&&previous.floor===floor&&previous.floorReady===floorReady&&previous.reach===reach&&previous.orbPower===orbPower)return canvas;
-    const height=kind===3?384:448,width=Math.round(height*im.naturalWidth/im.naturalHeight);
+    if(previous&&previous.im===im&&previous.time===time&&previous.reveal===reveal&&previous.kind===kind&&previous.opacity===opacity&&previous.floor===floor&&previous.floorReady===floorReady&&previous.reach===reach&&previous.orbPower===orbPower&&previous.fracture===fracture&&previous.originX===originX&&previous.originY===originY&&previous.spread===spread)return canvas;
+    const height=kind===5?768:kind===3?512:448,width=Math.round(height*im.naturalWidth/im.naturalHeight);
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);}
     if(!texture(im,0)||!texture(floor?.naturalWidth?floor:im,1))return null;
     gl.uniform1f(uniforms.time,time/1000);gl.uniform1f(uniforms.reveal,reveal);gl.uniform1f(uniforms.kind,kind);gl.uniform1f(uniforms.opacity,opacity);
     gl.uniform1f(uniforms.reach,reach);gl.uniform1f(uniforms.orbPower,orbPower);
+    gl.uniform1f(uniforms.fracture,fracture);gl.uniform1f(uniforms.originX,originX);gl.uniform1f(uniforms.originY,originY);gl.uniform1f(uniforms.spread,spread);
     gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-    previous={im,time,reveal,kind,opacity,floor,floorReady,reach,orbPower};
+    previous={im,time,reveal,kind,opacity,floor,floorReady,reach,orbPower,fracture,originX,originY,spread};
     return canvas;
   }};
  }
  // Separate buffers avoid rebuilding the GPU drawing surface every time the
  // floor and the figure, which have different aspect ratios, are sampled.
  const figure=createMaterialRenderer(),floor=createMaterialRenderer(),fire=createMaterialRenderer();
+ let blade;
  if(!figure)return null;
- return {render(im,options={}){return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
+ return {render(im,options={}){if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
 })();

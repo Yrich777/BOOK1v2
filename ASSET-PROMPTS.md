@@ -2,6 +2,10 @@
 
 Изображения созданы встроенным инструментом imagegen (без CLI/API). Для фигур использована настоящая прозрачность; альфа сохранена при оптимизации в WebP. Исходные иллюстрации и портреты сохранены. Внешность Бомбо и големши уточнена по восьми предоставленным страницам «про големов.pdf», затем образ Бомбо переработан по просьбам пользователя: текущая версия опирается на первый референс пользователя с цепями: обезображенное лицо, ржавая железная челюсть, ржавые цепи и реалистичная рваная одежда. Движущийся туман, мрамор и спектральное пламя рисуются кодом, изображения задают анатомию.
 
+## assets/golden-phoenix.webp
+
+Created with built-in imagegen for the courtyard lantern transformation. Full prompt: [golden-phoenix.prompt.txt](assets/golden-phoenix.prompt.txt). Optimized to 768 × 768 with true alpha. The lantern brightens, golden currents gather into a spatially revealed bird, and its two feather fans flap independently around the shoulders. The central body remains stable with a small hovering motion. Motion pause renders a complete static bird.
+
 ## assets/djinn-orb.webp
 
 Current city apparition, edited with built-in imagegen from djinn-visitor.webp. Its anatomical right arm reaches toward the viewer with an open, cupped palm. The full prompt is saved in [djinn-orb.prompt.txt](assets/djinn-orb.prompt.txt). Optimized to 960 × 1440 with genuine alpha preserved. The small violet sphere, internal currents, variable intensity and reflected light on the hand are animated in code. The cloud material preserves registration around the palm while the rest of the figure continues drifting.
@@ -10,7 +14,7 @@ Current city apparition, edited with built-in imagegen from djinn-visitor.webp. 
 
 Current asset used for the body, floor reflection and sampled flame silhouette. Generated with built-in imagegen from the user's first chained portrait reference, followed by a focused edit of the clothing and rust. The final costume is torn woven wool and cotton with seams, folds, holes and loose threads; chains and iron fittings have dark pitted oxidation. Optimized to 960 × 1440 with genuine alpha preserved. Both full prompts are saved in [golem-bombo-chained.prompt.txt](assets/golem-bombo-chained.prompt.txt).
 
-The shader preserves restrained rusty brown on the metal, adds dim violet eye and skin-vein shimmer aligned to the new anatomy, and keeps the body dark with sparse marble reflections. Continuous translucent spectral flames assemble the figure from floor shadows and remain in motion after its appearance.
+The shader preserves restrained rusty brown on the metal, adds dim violet eye and skin-vein shimmer aligned to the new anatomy, and keeps the body dark with sparse marble reflections. Translucent spectral flames assemble the figure from floor shadows, then fade out completely. The finished body is slightly transparent; intermittent branching glimmers propagate from both feet across the marble.
 
 ## assets/golem-bombo-cinematic.webp
 
