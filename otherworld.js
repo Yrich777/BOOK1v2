@@ -195,14 +195,16 @@
   }
   function goldenPhoenix(){
     const im=images.phoenix;if(!im?.naturalWidth)return;
-    const t=still()?0:clock*.001,lampX=746,lampY=423;
+    const t=still()?0:clock*.001,lampX=746,lampY=487;
     const kindle=smooth(progress/1.4),form=smooth((progress-1.25)/3.9);
+    const lift=smooth((progress-3.5)/3);
     const flare=kindle*(1-form*.69),breath=.84+.16*Math.sin(t*1.1)**2;
     ctx.save();ctx.globalCompositeOperation='screen';
     gradient(lampX,lampY,48+flare*35,62+flare*32,'255,179,57',flare*.67*breath);
     gradient(lampX,lampY,12+flare*11,18+flare*16,'255,232,161',kindle*.81);
     gradient(lampX,623,48,8,'255,184,73',kindle*.19*breath);
-    const size=48+form*76,cx=lampX+form*(Math.sin(t*.73)*2.7+Math.sin(t*1.13)*1.1),cy=lampY-form*44+form*(Math.sin(t*1.3)*1.6+Math.sin(t*2.1)*.5);
+    // Keep the forming chest inside the lantern's bright core, then lift away.
+    const size=14+form*110,cx=lampX-size*.08*(1-lift)+lift*(Math.sin(t*.73)*2.7+Math.sin(t*1.13)*1.1),cy=lampY+size*.04*(1-lift)-lift*44+lift*(Math.sin(t*1.3)*1.6+Math.sin(t*2.1)*.5);
     if(!still()&&form<1){
       for(let i=0;i<7;i++){
         const sway=Math.sin(t*1.7+i*1.9),side=i%2?1:-1;
