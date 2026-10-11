@@ -2,9 +2,13 @@
 
 Изображения созданы встроенным инструментом imagegen (без CLI/API). Для фигур использована настоящая прозрачность; альфа сохранена при оптимизации в WebP. Исходные иллюстрации и портреты сохранены. Внешность Бомбо и големши уточнена по восьми предоставленным страницам «про големов.pdf», затем образ Бомбо переработан по просьбам пользователя: текущая версия опирается на первый референс пользователя с цепями: обезображенное лицо, ржавая железная челюсть, ржавые цепи и реалистичная рваная одежда. Движущийся туман, мрамор и спектральное пламя рисуются кодом, изображения задают анатомию.
 
+## assets/phoenix-filaments.webp
+
+Current courtyard phoenix. Built-in imagegen edit of golden-phoenix.webp: a compact hummingbird-like bird woven from golden light filaments, with a slender beak and fine tail strands. [Full prompt](assets/phoenix-filaments.prompt.txt). Optimized to 768 × 768 with alpha preserved. A procedural material makes the space between bright strands translucent and sends moving light through them. Four short exposure samples per wing soften fast figure-eight strokes; the body has small independent hovering corrections.
+
 ## assets/golden-phoenix.webp
 
-Created with built-in imagegen for the courtyard lantern transformation. Full prompt: [golden-phoenix.prompt.txt](assets/golden-phoenix.prompt.txt). Optimized to 768 × 768 with true alpha. The lantern brightens, golden currents gather into a spatially revealed bird, and its two feather fans flap independently around the shoulders. The central body remains stable with a small hovering motion. Motion pause renders a complete static bird.
+Preserved earlier design, superseded by phoenix-filaments.webp. Created with built-in imagegen for the courtyard lantern transformation. Full prompt: [golden-phoenix.prompt.txt](assets/golden-phoenix.prompt.txt). Optimized to 768 × 768 with true alpha. The lantern brightens, golden currents gather into a spatially revealed bird, and its two feather fans flap independently around the shoulders. The central body remains stable with a small hovering motion. Motion pause renders a complete static bird.
 
 ## assets/djinn-orb.webp
 

@@ -53,11 +53,12 @@ function rig({reduced=false,living=false}={}){
 }
 test('the courtyard lantern ignites before a phoenix replaces the mist visitor',()=>{
   const r=rig({living:true});r.scene('fates');r.button.click();r.advance(900);
-  assert.equal(r.main.calls.filter(c=>c.args[0]?.url?.includes('golden-phoenix')).length,0);
+  assert.ok(!r.materials.some(m=>m.kind===6));
   r.advance(5200);
-  assert.equal(r.main.calls.filter(c=>c.args[0]?.url?.includes('golden-phoenix')).length,3,'two wings and a separate body are drawn');
+  assert.ok(r.materials.some(m=>m.kind===6&&m.url.includes('phoenix-filaments')));
+  assert.equal(r.main.calls.filter(c=>c.args[0]?.width===373).length,9,'two wings each have four exposure samples, plus a stable body');
   assert.ok(!r.materials.some(m=>m.url.includes('golem-woman')),'no mist visitor should appear in the courtyard');
-  r.pause();assert.equal(r.main.calls.filter(c=>c.args[0]?.url?.includes('golden-phoenix')).length,3);
+  r.pause();assert.equal(r.main.calls.filter(c=>c.args[0]?.width===373).length,3,'paused wings have no blur trail');
   r.button.click();assert.equal(r.main.calls.length,0);
 });
 

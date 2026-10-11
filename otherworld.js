@@ -29,7 +29,7 @@
     fates: 'В свете старого фонаря просыпается феникс.',
     read: 'Иная Москва остаётся по ту сторону страниц.'
   };
-  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'golden-phoenix'})) {
+  for (const [key, file] of Object.entries({golem:'golem-bombo-chained',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
     const im = new Image();
     im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'stone':'smoke');render();};
     im.onerror = () => { status.textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
@@ -202,7 +202,7 @@
     gradient(lampX,lampY,48+flare*35,62+flare*32,'255,179,57',flare*.67*breath);
     gradient(lampX,lampY,12+flare*11,18+flare*16,'255,232,161',kindle*.81);
     gradient(lampX,623,48,8,'255,184,73',kindle*.19*breath);
-    const size=52+form*94,cx=lampX+Math.sin(t*.52)*form*3,cy=lampY-form*41+Math.sin(t*2.5)*form*2;
+    const size=48+form*76,cx=lampX+form*(Math.sin(t*.73)*2.7+Math.sin(t*1.13)*1.1),cy=lampY-form*44+form*(Math.sin(t*1.3)*1.6+Math.sin(t*2.1)*.5);
     if(!still()&&form<1){
       for(let i=0;i<7;i++){
         const sway=Math.sin(t*1.7+i*1.9),side=i%2?1:-1;
@@ -214,16 +214,23 @@
     }
     ctx.shadowBlur=0;gradient(cx,cy-size*.06,size*.64,size*.68,'255,191,74',form*.14*breath);
     ctx.restore();if(form<=0)return;
-    const source=form<1?materialization(im,form,'smoke').layer:im;
-    const wings=[[[0,0],[.39,0],[.39,.15],[.46,.30],[.47,.42],[.43,.54],[0,.54]],[[.63,0],[1,0],[1,.54],[.57,.54],[.56,.36],[.60,.27]]];
+    const light=window.Manifestations?.render(im,{time:still()?0:clock,reveal:form,kind:6});
+    const source=light||(form<1?materialization(im,form,'smoke').layer:im);
+    const wings=[[[0,0],[.43,0],[.43,.20],[.49,.33],[.55,.43],[.52,.55],[.46,.63],[0,.63]],[[.85,0],[1,0],[1,.64],[.70,.62],[.65,.52],[.65,.435],[.78,.33],[.83,.27]]];
     const trace=points=>{ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++)ctx.lineTo(...points[i]);ctx.closePath();};
-    ctx.save();ctx.translate(cx-size*.5,cy-size*.5);ctx.scale(size,size);ctx.globalAlpha=.9*kindle;
-    const beat=still()?0:Math.sin(t*4.3),fold=still()?1:.74+.26*Math.sin(t*4.3+.45);
-    // Wing roots remain attached to the chest; only the feather fans rotate.
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(still()?0:Math.sin(t*1.4)*.035+Math.sin(t*3.1)*.014);ctx.scale(size,size);ctx.translate(-.5,-.5);ctx.globalAlpha=.96*kindle;
+    // Short exposure samples soften fast figure-eight strokes; the small body
+    // hovers steadily instead of bouncing once for each wingbeat.
+    const exposures=still()?[[0,1]]:[[0,.54],[-.7,.24],[-1.4,.14],[-2.1,.08]];
     wings.forEach((points,i)=>{
-      const root=i===0?.465:.57,side=i===0?-1:1;
-      ctx.save();ctx.translate(root,.33);ctx.rotate(side*(beat*.22));ctx.scale(1,fold);ctx.translate(-root,-.33);
-      ctx.beginPath();trace(points);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();
+      const root=i===0?.54:.65,side=i===0?-1:1;
+      for(const [lag,weight] of exposures){
+        const phase=t*55+Math.sin(t*.7)*.4+lag+i*.08;
+        const beat=still()?0:Math.sin(phase),fold=still()?1:.60+.34*Math.cos(phase);
+        ctx.save();ctx.globalAlpha=.96*kindle*weight;ctx.translate(root,.445);ctx.rotate(side*beat*.42);
+        ctx.transform(1,side*beat*.08,still()?0:side*Math.sin(phase*2)*.12,fold,0,0);ctx.translate(-root,-.445);
+        ctx.beginPath();trace(points);ctx.clip();ctx.drawImage(source,0,0,1,1);ctx.restore();
+      }
     });
     ctx.beginPath();ctx.rect(0,0,1,1);wings.forEach(trace);ctx.clip('evenodd');ctx.drawImage(source,0,0,1,1);ctx.restore();
   }
@@ -473,6 +480,7 @@
     const c = document.createElement('canvas'); c.width = c.height = 512; host.append(c);
     const p = {host, canvas:c, ctx:c.getContext('2d'), base:new Image(), blink:new Image(), eyelids:null, hair:null, chest:null, nextBlink:1400 + index * 400, blinkAt:-1000, clock:0};
     const name = host.closest('.farewell') ? 'warm' : 'cool';
+    p.warm=name==='warm';
     const eyes = name === 'warm' ? [[164,185,27,23,-.2],[246,163,31,24,-.32]] : [[150,175,26,21,-.16],[224,158,30,23,-.22]];
     p.blink.onload = () => {
       p.eyelids = document.createElement('canvas'); p.eyelids.width = p.eyelids.height = 512;
@@ -497,7 +505,8 @@
       // together, rather than sliding individual parts of her face.
       x.translate(256,280+Math.sin(p.clock*.0008)*1.8);x.rotate(Math.sin(p.clock*.00043)*.009);x.scale(1.015,1.015);x.translate(-256,-280);
     }
-    x.drawImage(p.base,0,0,512,512);
+    const wind=!still()?window.Manifestations?.render(p.base,{time:p.clock+(p.warm?1900:0),kind:7,reach:p.warm?1:0}):null;
+    x.drawImage(wind||p.base,0,0,512,512);
     if (still()){x.restore();return;}
     // Feathered layers move only the hair and shoulders; the facial features stay registered.
     if (!p.hair) {
@@ -509,7 +518,13 @@
       }
     }
     x.save(); x.translate(0,Math.sin(p.clock*.00125)*3.2); x.drawImage(p.chest,0,0); x.restore();
-    x.save(); x.translate(Math.sin(p.clock*.00065)*5.4,Math.sin(p.clock*.0008)*1.1); x.drawImage(p.hair,0,0); x.restore();
+    if(!wind){
+      const time=p.clock*.001,gust=.12+.88*Math.max(0,Math.sin(time*.63+.65*Math.sin(time*.22)))**3;
+      for(let row=0;row<32;row++){
+        const y=row*16,flex=smooth(y/512),shift=(2+12*flex)*gust*Math.sin(time*2.9-y*.01);
+        x.drawImage(p.hair,0,y,512,17,shift,y+gust*Math.sin(time*2.1-y*.012),512,17);
+      }
+    }
     if (p.clock >= p.nextBlink && p.eyelids) {p.blinkAt=p.clock; p.nextBlink=p.clock+2800+Math.random()*2300;}
     const age = p.clock-p.blinkAt;
     if (age>=0 && age<340 && p.eyelids) {

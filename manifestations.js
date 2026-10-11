@@ -19,6 +19,37 @@ window.Manifestations = (() => {
     float fbm(vec2 p){float a=.5,n=0.;for(int i=0;i<4;i++){n+=a*noise(p);p=mat2(1.62,1.17,-1.17,1.62)*p+vec2(3.1,7.4);a*=.5;}return n;}
     void main(){
       float t=time;
+      if(kind>6.5){
+        vec2 p=vec2(uv.x,1.-uv.y);
+        vec3 original=texture2D(anatomy,uv).rgb;
+        vec2 faceCenter=reach>.5?vec2(.46,.39):vec2(.43,.36);
+        float face=1.-smoothstep(.92,1.16,length((p-faceCenter)/vec2(.29,.31)));
+        float left=(1.-smoothstep(.22,.36,p.x))*smoothstep(.09,.3,p.y);
+        float right=smoothstep(.64,.82,p.x);
+        float crown=(1.-smoothstep(.10,.23,p.y))*.24;
+        float shoulder=smoothstep(.58,.78,p.y)*(1.-smoothstep(.17,.30,abs(p.x-.57)));
+        float auburn=smoothstep(.015,.075,original.r-max(original.g*1.12,original.b*.92));
+        float hair=max(max(left,right),crown)*(1.-face)*(1.-shoulder)*(.35+.65*auburn);
+        float gust=pow(max(0.,sin(t*.63+.65*sin(t*.22))),3.);
+        gust=max(gust,.62*pow(max(0.,sin(t*.91+2.4)),7.));
+        float tips=smoothstep(.13,.94,p.y);
+        float bend=(.10+.90*gust)*(.70*sin(t*2.9-p.y*5.+p.x*2.)+.30*sin(t*5.8-p.y*9.));
+        vec2 offset=vec2((.006+.029*tips)*bend,.005*gust*sin(t*2.1-p.y*6.));
+        vec2 sampleUV=uv+offset*hair;
+        gl_FragColor=texture2D(anatomy,sampleUV);return;
+      }
+      if(kind>5.5){
+        vec4 bird=texture2D(anatomy,uv);
+        float strand=smoothstep(.48,.86,max(bird.g,bird.b*1.14));
+        float flow=fbm(uv*vec2(6.,10.)+vec2(t*.10,-t*.16));
+        float current=pow(.5+.5*sin(flow*15.-t*1.8+uv.y*7.),3.);
+        float glint=.75+.25*current;
+        float assemble=smoothstep((1.-reveal)*1.16,(1.-reveal)*1.16+.14,flow*.46+strand*.54);
+        // Leave transparent space between the source's finest bright threads.
+        float alpha=bird.a*min(1.,.12+strand*.95)*glint*assemble*opacity;
+        vec3 color=mix(vec3(.90,.43,.085),vec3(1.,.88,.52),strand*.76+current*.24);
+        gl_FragColor=vec4(color,alpha);return;
+      }
       if(kind>4.5){
         // Work in the original illustration's coordinates so the smoke stays
         // behind the blade and the light remains inside the actual gemstones.
@@ -267,7 +298,7 @@ window.Manifestations = (() => {
     if(lost||!im?.naturalWidth)return null;
     const floorReady=Boolean(floor?.naturalWidth);
     if(previous&&previous.im===im&&previous.time===time&&previous.reveal===reveal&&previous.kind===kind&&previous.opacity===opacity&&previous.floor===floor&&previous.floorReady===floorReady&&previous.reach===reach&&previous.orbPower===orbPower&&previous.fracture===fracture&&previous.originX===originX&&previous.originY===originY&&previous.spread===spread)return canvas;
-    const height=kind===5?768:kind===3?512:448,width=Math.round(height*im.naturalWidth/im.naturalHeight);
+    const height=kind===5?768:kind===3||kind>=6?512:448,width=Math.round(height*im.naturalWidth/im.naturalHeight);
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);}
     if(!texture(im,0)||!texture(floor?.naturalWidth?floor:im,1))return null;
     gl.uniform1f(uniforms.time,time/1000);gl.uniform1f(uniforms.reveal,reveal);gl.uniform1f(uniforms.kind,kind);gl.uniform1f(uniforms.opacity,opacity);
@@ -281,7 +312,7 @@ window.Manifestations = (() => {
  // Separate buffers avoid rebuilding the GPU drawing surface every time the
  // floor and the figure, which have different aspect ratios, are sampled.
  const figure=createMaterialRenderer(),floor=createMaterialRenderer(),fire=createMaterialRenderer();
- let blade;
+ let blade,phoenix,portrait;
  if(!figure)return null;
- return {render(im,options={}){if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
+ return {render(im,options={}){if(options.kind===7){if(portrait===undefined)portrait=createMaterialRenderer();return portrait?.render(im,options)||null;}if(options.kind===6){if(phoenix===undefined)phoenix=createMaterialRenderer();return phoenix?.render(im,options)||null;}if(options.kind===5){if(blade===undefined)blade=createMaterialRenderer();return blade?.render(im,options)||null;}return (options.kind===4?fire:options.kind===3?floor:figure)?.render(im,options)||null;}};
 })();
