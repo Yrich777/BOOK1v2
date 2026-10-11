@@ -13,12 +13,15 @@
   const noiseHashes = new Float64Array(16384).fill(NaN);
   const backgrounds = {};
   const floorImage=new Image();floorImage.src='assets/marble.webp';backgrounds.marble=floorImage;
-  const duration = 7.2;
+  const duration = 7.2, golemDuration = 9.4;
   let activeScene = null, open = false, progress = 0, last = 0, clock = 0, encounterTime=0;
   let w = innerWidth, h = innerHeight, pixelRatio = 1;
   let waveOrigin = {x:w*.78,y:75};
   const clamp = n => Math.max(0, Math.min(1, n));
   const smooth = n => { n = clamp(n); return n * n * (3 - 2 * n); };
+  const encounterDuration = () => activeScene?.id==='marble'?golemDuration:duration;
+  // Keep the wind's arrival speed; extend only the dissipation that follows.
+  const golemPhase = () => progress<=2.88?progress/duration:.4+.6*clamp((progress-2.88)/(golemDuration-2.88));
   const messages = {
     prologue: 'За порталом кто-то ждёт.',
     city: 'У города есть другие обитатели.',
@@ -46,7 +49,7 @@
     if (next === activeScene) return;
     activeScene = next; activeScene.append(canvas);
     encounterTime=0;
-    progress = open ? (still() ? duration : 0) : 0;
+    progress = open ? (still() ? encounterDuration() : 0) : 0;
     waveOrigin = {x:w*.75,y:h*.3};
     const names={prologue:'hero',city:'city',blade:'dagger',marble:'marble',between:'rasta-interworld-tunnel',fates:'puzyr-courtyard'};
     if(names[next.id]&&!backgrounds[next.id]){const im=new Image();im.src=`assets/${names[next.id]}.webp`;backgrounds[next.id]=im;}
@@ -62,7 +65,7 @@
     button.querySelector('.world-label').textContent = open ? 'Вернуться в привычный мир' : 'Увидеть Москву иную';
     document.body.classList.toggle('world-open', open);
     status.textContent = open ? messages[activeScene.id] : 'Увидеть то, что скрыто';
-    if (still()) progress = open ? duration : 0;
+    if (still()) progress = open ? encounterDuration() : 0;
     document.querySelector('#announcement').textContent = open ? `Москва иная открыта. ${messages[activeScene.id]}` : 'Вы вернулись в привычный мир.';
     render();
   });
@@ -92,15 +95,17 @@
         const n=noise(x/29,y/36)*.6+noise(x/11,y/13)*.28+noise(x/4,y/5)*.12;
         // The ash veil retreats from the outside to its center. Other visitors
         // still gather from broad drifting folds of smoke.
-        data.field[y*mw+x]=kind==='ash'?.39+.60*(1-clamp(Math.hypot((x/mw-.5)*.8003/.53,(y/mh-.5)/.65)/1.3))+.06*n:.08+.5*n+.24*Math.abs(x/mw-.5)*2+.18*(y/mh);
+        data.field[y*mw+x]=kind==='ash'?smooth((Math.hypot((x/mw-.5)*.8003/.53,(y/mh-.5)/.65)-.15)/1.25)*.30+(n-.5)*.22:.08+.5*n+.24*Math.abs(x/mw-.5)*2+.18*(y/mh);
       }
       materializations.set(im,data);
     }
     const key=Math.round(phase*100);
     if(data.key!==key){
       const p=key/100,m=data.maskPixels.data,e=data.edgePixels.data;
+      const clear=smooth((p-.4)/.6),remains=1-smooth((p-.88)/.12),started=smooth((p-.34)/.14);
       for(let i=0;i<data.field.length;i++){
-        const distance=p*1.12-data.field[i],a=smooth(distance/.085);
+        const distance=p*1.12-data.field[i];
+        const a=kind==='ash'?(1-(1-smooth((clear+data.field[i]-.05)/.91))*remains)*started:smooth(distance/.085);
         m[i*4]=m[i*4+1]=m[i*4+2]=255;m[i*4+3]=Math.round(a*255);
         e[i*4]=165;e[i*4+1]=148;e[i*4+2]=192;
         e[i*4+3]=Math.round(Math.max(0,1-Math.abs(distance-.022)/.048)*105*(1-smooth((p-.8)/.2)));
@@ -124,7 +129,7 @@
     if (!im?.naturalWidth || alpha <= 0) return;
     const width = height * im.naturalWidth / im.naturalHeight;
     ctx.save(); ctx.globalAlpha = alpha;
-    const phase=im===images.golem?progress/duration:smooth((progress-.35)/5.6);
+    const phase=im===images.golem?golemPhase():smooth((progress-.35)/5.6);
     const kind=im===images.golem?2:activeScene.id==='prologue'?0:1;
     const spell=im===images.djinn?djinnSpell():{reach:-1,power:0};
     const living=window.Manifestations?.render(im,{time:still()?0:clock,reveal:reflection&&im!==images.golem?1:phase,kind,opacity:1,floor:im===images.golem?null:floorImage,reach:spell.reach,orbPower:spell.power});
@@ -144,7 +149,7 @@
       if(living){ctx.filter='none';ctx.globalAlpha=alpha;ctx.drawImage(living,x-width/2,foot-height,width,height);ctx.restore();return;}
       if(phase>0){
         const data=materialization(im,phase,im===images.golem?'ash':'smoke');
-        ctx.filter = tint ? 'brightness(.56) saturate(.6)' : im===images.golem?'brightness(.82) saturate(.86)':'brightness(.84) saturate(.82)';
+        ctx.filter = tint ? 'brightness(.56) saturate(.6)' : im===images.golem?'brightness(.82) saturate(.86) sepia(.12)':'brightness(.84) saturate(.82)';
         if(phase>=1||still()) ctx.drawImage(im,x-width/2,foot-height,width,height);
         else if(im===images.golem) ctx.drawImage(data.layer,x-width/2,foot-height,width,height);
         else {
@@ -247,11 +252,12 @@
   }
   function golemState(){
     const t=still()?0:clock*.001;
-    const arrival=smooth(progress/2.8),clearing=smooth((progress-2.88)/4.32);
-    const body=smooth((progress-2.45)/1.05),awakening=smooth((progress-4.6)/2.2);
+    const arrival=smooth(progress/2.8),clearing=smooth((progress-2.88)/(golemDuration-2.88));
+    const body=smooth((progress-2.45)/1.05),awakening=smooth((progress-5.3)/2.7);
     return {t,arrival,clearing,body,
       scroll:awakening*(.38+.62*(.5+.5*Math.sin(t*1.13+.43*Math.sin(t*.37)))**2),
       eyes:awakening*(.54+.46*(.5+.5*Math.sin(t*1.41+.55*Math.sin(t*.51)))**2),
+      rune:awakening*(.48+.52*(.5+.5*Math.sin(t*.83+.36*Math.sin(t*.39)))**2),
       shadow:.25+.045*Math.sin(t*1.13+.4)+.015*Math.sin(t*2.31)};
   }
   function clipBridgeFloor(floorX,floorY,floorScale){
@@ -262,7 +268,7 @@
   function golemShadow(x,foot,height,floorX,floorY,floorScale){
     const im=images.golem,state=golemState();if(!im?.naturalWidth||!state.body)return;
     const width=height*im.naturalWidth/im.naturalHeight;
-    const source=window.Manifestations?.render(im,{time:still()?0:clock,reveal:progress/duration,kind:2,opacity:1})||materialization(im,progress/duration,'ash').layer;
+    const source=window.Manifestations?.render(im,{time:still()?0:clock,reveal:golemPhase(),kind:2,opacity:1})||materialization(im,golemPhase(),'ash').layer;
     ctx.save();clipBridgeFloor(floorX,floorY,floorScale);
     ctx.globalAlpha=state.shadow*state.body;ctx.filter='brightness(0) blur(4px)';
     // The light comes from the right: the shadow stretches left and toward us.
@@ -284,18 +290,18 @@
     x.putImageData(pixels,0,0);ashSprites[seed]=c;return c;
   }
   function ashFog(x,foot,height){
-    if(still()||progress>=duration||!images.golem?.naturalWidth)return;
-    const state=golemState(),amount=progress/duration;
+    if(still()||progress>=golemDuration||!images.golem?.naturalWidth)return;
+    const state=golemState(),amount=golemPhase();
     const fog=window.Manifestations?.render(images.golem,{time:clock,reveal:amount,kind:4,opacity:1});
     if(fog){ctx.drawImage(fog,x-height*.9,foot-height*1.1,height*2.1,height*1.2);}
     else{
       // Layered turbulent puffs retain the right-to-left arrival without WebGL.
       for(let i=0;i<30;i++){
         const a=i*2.399,ring=.18+(i%6)*.12;
-        const fade=1-smooth((state.clearing-(1-ring)*.57)/.35);
-        const px=x+height*(1.25*(1-state.arrival)+Math.cos(a)*ring*.56+Math.sin(state.t*.65+i)*.024);
-        const py=foot-height*(.51+Math.sin(a)*ring*.64);
-        const size=height*(.30+(i%4)*.055);
+        const fade=(1-smooth((state.clearing-(1-ring)*.57)/.35))*(1-state.clearing);
+        const px=x+height*(1.25*(1-state.arrival)+Math.cos(a)*ring*.56+Math.sin(state.t*.65+i)*.024-state.clearing*(.12+(i%3)*.04));
+        const py=foot-height*(.51+Math.sin(a)*ring*.64+state.clearing*.045);
+        const size=height*(.30+(i%4)*.055)*(1+state.clearing*.28);
         ctx.save();ctx.globalAlpha=fade*smooth(progress/.9)*.6;
         ctx.drawImage(ashSprite(i%4),px-size*.65,py-size*.5,size*1.3,size);ctx.restore();
       }
@@ -322,10 +328,26 @@
       gradient(left+u*width,top+v*height,height*.010,height*.007,'190,9,18',state.eyes*.46);
       gradient(left+u*width,top+v*height,height*.0024,height*.0019,'255,64,46',state.eyes*.9);
     }
-    for(const [u,v] of [[.549,.261],[.516,.356]]){
-      gradient(left+u*width,top+v*height,height*.042,height*.065,'123,42,210',state.scroll*.20);
-      gradient(left+u*width,top+v*height,height*.017,height*.027,'181,103,243',state.scroll*.28);
-    }
+    ctx.save();ctx.translate(left,top);ctx.scale(width/1122,height/1402);
+    // Insets follow the two exposed parchment pieces in golem-ash.webp.
+    // The fingers occupy the gap, and receive no additive halo or glow.
+    const paper=[[[602,344],[629,349],[619,388],[594,385]],[[578,475],[599,480],[590,516],[568,506]]];
+    ctx.save();ctx.beginPath();
+    for(const polygon of paper){polygon.forEach(([px,py],i)=>ctx[i?'lineTo':'moveTo'](px,py));ctx.closePath();}
+    ctx.clip();
+    const light=ctx.createLinearGradient(578,344,622,516);
+    const current=.5+.5*Math.sin(state.t*.94);
+    light.addColorStop(0,'#7d2dc1');light.addColorStop(.25+current*.5,'#d09bf2');light.addColorStop(1,'#7830cf');
+    ctx.globalAlpha=state.scroll*.62;ctx.fillStyle=light;ctx.fillRect(565,340,68,180);ctx.restore();
+    // A small asymmetric rune follows the sloping, unoccluded forehead.
+    const rune=[[[382,47],[375,79]],[[378,64],[392,54]],[[378,64],[367,56]],[[375,77],[388,69]]];
+    const traceRune=()=>{ctx.beginPath();for(const [[ax,ay],[bx,by]] of rune){ctx.moveTo(ax,ay);ctx.lineTo(bx,by);}};
+    const ink=ctx.createLinearGradient(370,47,389,80);
+    ink.addColorStop(0,'#7829d9');ink.addColorStop(.2+current*.6,'#e2b9ff');ink.addColorStop(1,'#9345df');
+    ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor='#9e45f0';ctx.shadowBlur=1.6;
+    ctx.strokeStyle='#7e32c6';ctx.lineWidth=5;ctx.globalAlpha=state.rune*.25;traceRune();ctx.stroke();
+    ctx.strokeStyle=ink;ctx.lineWidth=2.3;ctx.globalAlpha=state.rune*.88;traceRune();ctx.stroke();
+    ctx.restore();
     ctx.restore();
   }
 
@@ -490,12 +512,12 @@
   function frame(t) {
     if (!document.hidden && t-last>=32) {
       const dt=last ? Math.min(t-last,250) : 0; last=t;
-      if (still()) { const target=open?duration:0; if(progress!==target){progress=target;render();} }
+      if (still()) { const target=open?encounterDuration():0; if(progress!==target){progress=target;render();} }
       else {
         clock+=dt;
         const turning=document.querySelector('#page-turn').style.display==='block';
         if(open&&!turning)encounterTime+=dt/1000;
-        const next=turning?progress:open?Math.min(duration,progress+dt/1000):Math.max(0,progress-dt/650);
+        const next=turning?progress:open?Math.min(encounterDuration(),progress+dt/1000):Math.max(0,progress-dt/650);
         if(next!==progress || progress>0){progress=next;render();}
       }
       for(const p of portraits) if(p.host.closest('.scene')===activeScene) drawPortrait(p,still()||document.querySelector('#page-turn').style.display==='block'?0:dt);
@@ -505,7 +527,7 @@
   // Existing page turning copies this layer onto the departing parchment.
   window.Inaya = {sceneChanged, resize, paintTo(destination){destination.drawImage(canvas,0,0,w,h);}};
   new MutationObserver(() => {
-    if(still()) {progress=open?duration:0; for(const p of portraits){p.blinkAt=-1000;drawPortrait(p,0);}render();}
+    if(still()) {progress=open?encounterDuration():0; for(const p of portraits){p.blinkAt=-1000;drawPortrait(p,0);}render();}
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
   addEventListener('resize',resize);
   floorImage.onload=()=>render();

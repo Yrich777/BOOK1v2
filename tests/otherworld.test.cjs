@@ -87,6 +87,8 @@ test('the body and clearing veil share coordinates and time, then smoke disappea
  const bodyIndex=r.main.calls.findIndex(c=>c.args[0]?.kind===2&&c.filter==='none');
  assert.ok(r.main.calls.findIndex(c=>c.args[0]?.kind===4)>bodyIndex,'foreground mist covers the emerging body');
  r.advance(3600);r.materials.length=0;r.advance(100);
+ assert.ok(r.materials.some(m=>m.kind===4&&m.reveal<1),'the veil is still dissipating after eight seconds');
+ r.advance(1800);r.materials.length=0;r.advance(100);
  assert.ok(!r.materials.some(m=>m.kind===4||m.kind===3));
  assert.ok(r.materials.some(m=>m.kind===2&&m.reveal===1));
  const shadow=()=>r.main.calls.find(c=>c.filter==='brightness(0) blur(4px)');

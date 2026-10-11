@@ -33,16 +33,15 @@ window.Manifestations = (() => {
       return smoothstep(0.,12.,inside);
     }
     // Coordinates are measured in creature heights, with Y pointing down.
-    // Smoke and anatomy share the same retreating, turbulent boundary.
+    // The whole volume loses density while the outer wisps clear first.
+    // No shrinking opaque core is left over the middle of the figure.
     float ashCover(vec2 p,float age,float amount){
       float clear=smoothstep(.40,1.,amount);
       float eddy=fbm(p*5.+vec2(age*.19,-age*.09));
       float radius=length((p-vec2(0.,.50))/vec2(.53,.65));
-      float boundary=mix(1.45,-.28,clear);
-      return (1.-smoothstep(boundary-.09,boundary+.16,radius+(eddy-.5)*.28))*(1.-smoothstep(.96,1.,amount));
-    }
-    float segmentDistance(vec2 p,vec2 a,vec2 b){
-      vec2 d=b-a;return length(p-a-d*clamp(dot(p-a,d)/dot(d,d),0.,1.));
+      float edgeBias=smoothstep(.15,1.40,radius)*.30;
+      float erosion=smoothstep(.05,.96,clear+edgeBias+(eddy-.5)*.22);
+      return (1.-erosion)*(1.-smoothstep(.88,1.,amount));
     }
     void main(){
       float t=time;
@@ -59,7 +58,9 @@ window.Manifestations = (() => {
         coverage*=mix(1.,ashCover(p,t,reveal),smoothstep(.30,.40,reveal));
         // Charcoal depths and ash-grey turbulent rims, never a luminous blob.
         float rim=pow(cloud,2.)*.60+folds*.15;
-        vec3 color=mix(vec3(.016,.018,.025),vec3(.27,.28,.30),rim);
+        float thinning=smoothstep(.40,1.,reveal);
+        vec3 ash=mix(vec3(.016,.018,.025),vec3(.11,.12,.14),thinning);
+        vec3 color=mix(ash,vec3(.27,.28,.30),rim);
         float alpha=coverage*clamp(.55+cloud*.72+folds*.18,0.,.98)*opacity;
         alpha*=smoothstep(0.,.045,uv.x)*smoothstep(0.,.045,1.-uv.x);
         alpha*=smoothstep(0.,.045,uv.y)*smoothstep(0.,.045,1.-uv.y);
@@ -71,12 +72,16 @@ window.Manifestations = (() => {
         vec4 source=texture2D(anatomy,uv);
         float visible=(1.-ashCover(body,t,reveal))*smoothstep(.34,.48,reveal);
         vec3 color=source.rgb*vec3(.79,.82,.87)+vec3(.004,.005,.011);
-        // Light stays registered to the exposed parchment, not the fingers.
-        float scroll=min(segmentDistance(p,vec2(.550,.250),vec2(.542,.286)),segmentDistance(p,vec2(.520,.342),vec2(.512,.368)));
-        float parchment=1.-smoothstep(.012,.020,scroll);
-        float spell=smoothstep(.64,.94,reveal)*(.38+.62*pow(.5+.5*sin(t*1.13+.43*sin(t*.37)),2.));
-        float fibers=.5+.5*sin(p.y*390.+fbm(p*40.)*8.-t*.9);
-        color=mix(color,color*.65+vec3(.46,.17,.74)+vec3(.18,.10,.21)*fibers,parchment*spell*.88);
+        // Select exposed skin spatially, leaving the coat and rusty iron alone.
+        float face=1.-smoothstep(.68,1.,length((p-vec2(.363,.105))/vec2(.075,.091)));
+        float neck=1.-smoothstep(.60,1.,length((p-vec2(.414,.207))/vec2(.043,.058)));
+        float lowHand=1.-smoothstep(.58,1.,length((p-vec2(.310,.545))/vec2(.063,.12)));
+        float scrollHand=1.-smoothstep(.62,1.,length((p-vec2(.568,.312))/vec2(.087,.049)));
+        float skin=max(max(face,neck),max(lowHand,scrollHand));
+        float iron=1.-smoothstep(.035,.12,source.r-source.g*1.35);
+        skin*=iron*smoothstep(.07,.22,dot(source.rgb,vec3(.21,.72,.07)));
+        vec3 parchmentSkin=source.rgb*vec3(.92,.89,.72)+vec3(.015,.012,.0);
+        color=mix(color,parchmentSkin,skin*.72);
         float eyes=exp(-dot((p-vec2(.325,.094))/vec2(.006,.0035),(p-vec2(.325,.094))/vec2(.006,.0035)));
         eyes+=exp(-dot((p-vec2(.369,.081))/vec2(.006,.0035),(p-vec2(.369,.081))/vec2(.006,.0035)));
         float eyePulse=smoothstep(.66,.95,reveal)*(.54+.46*pow(.5+.5*sin(t*1.41+.55*sin(t*.51)),2.));

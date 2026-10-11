@@ -6,7 +6,7 @@
 
 Current Bombo. Source: the user-provided голем1.jpg photograph (11 October 2026). The built-in image_gen tool extracted the creature onto true transparent alpha, preserving its full-body pose, scroll, rusty chains and ragged clothing. Optimized to 1122 × 1402 WebP with alpha preserved. [Exact extraction prompt](assets/golem-ash.prompt.txt).
 
-The shader preserves the photographic source. Ash-grey wind arrives from the right, then retreats inward with the same procedural boundary that reveals the body. Separate registered masks animate violet light on exposed parchment and red light inside the eye sockets. A projected silhouette casts a subtly fluctuating shadow clipped to the walkable bridge. The smoke texture is procedural, not baked into the image.
+The shader preserves the photographic source. Ash-grey wind arrives from the right, then retreats inward with the same procedural boundary that reveals the body. Two inset parchment polygons exclude the occluding fingers from violet light. A small animated violet rune follows the forehead, and red light shimmers in the eye sockets. A restrained skin-only material grade adds a yellowish parchment tone. The 9.4-second arrival keeps wind speed unchanged and extends dissipation; density drops throughout the cloud so it cannot collapse into a solid dark core. A projected silhouette casts a subtly fluctuating shadow clipped to the walkable bridge. The smoke texture is procedural, not baked into the image.
 
 ## assets/golem-woven.webp
 
