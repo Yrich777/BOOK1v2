@@ -104,7 +104,7 @@ body:has(.finale.active){--story-left:55%}
 .world-controls{left:var(--story-left);bottom:var(--switch-bottom);max-width:calc(100% - var(--story-left) - 8%)}
 .world-controls:before{content:'';position:absolute;left:0;top:-19px;width:min(420px,100%);height:1px;background:linear-gradient(90deg,#d1b37588,#d1b37518)}
 .world-controls .world-toggle{--spark:#ffd574;--spark-core:#fff9d9;position:relative;min-height:var(--switch-height);padding:13px 20px;gap:13px;font-size:13px;line-height:1.4;letter-spacing:.7px;border-color:#d1b375a6;overflow:visible}
-.world-controls .world-toggle:after{content:'';position:absolute;width:3px;height:3px;border-radius:50%;background:var(--spark-core);box-shadow:0 0 3px 1px var(--spark),0 0 7px 1px color-mix(in srgb,var(--spark) 55%,transparent);offset-path:inset(-1px);offset-distance:0%;animation:world-spark 4s linear infinite;pointer-events:none}
+.world-controls .world-toggle:after{content:'';position:absolute;width:9px;height:1px;border-radius:50%;background:linear-gradient(90deg,transparent,var(--spark-core),transparent);box-shadow:0 0 2px color-mix(in srgb,var(--spark) 35%,transparent);opacity:.3;offset-path:inset(-1px);offset-rotate:auto;offset-distance:0%;animation:world-spark 4s linear infinite,world-spark-flicker 1.7s ease-in-out infinite;pointer-events:none}
 .world-controls .world-toggle[aria-pressed=true]{--spark:#bd73ff;--spark-core:#f5deff;border-color:#b777f0;box-shadow:0 0 24px #a75bea26}
 .world-open .world-controls:before{background:linear-gradient(90deg,#b777f088,#b777f018)}
 .scene h2{font-size:clamp(42px,4.4vw,68px)}
@@ -116,6 +116,7 @@ body:has(.finale.active){--story-left:55%}
 .finale .eyebrow{justify-content:flex-start}
 .finale .restart{margin-left:0}
 @keyframes world-spark{to{offset-distance:100%}}
+@keyframes world-spark-flicker{0%,100%{opacity:.18}28%{opacity:.38}47%{opacity:.23}72%{opacity:.32}}
 @media(max-width:900px){
  body{--story-left:8%}
  .scene h2{font-size:48px}
