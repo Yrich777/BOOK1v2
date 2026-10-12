@@ -321,6 +321,16 @@
     const state=golemState();if(!state.scroll&&!state.eyes)return;
     const width=height*images.golem.naturalWidth/images.golem.naturalHeight,left=x-width*.5,top=foot-height;
     ctx.save();ctx.globalCompositeOperation='screen';
+    if(!window.Manifestations){
+      // Canvas fallback uses overlapping irregular wisps under the chest cloth.
+      const beat=(state.t/1.55)%1;
+      const pulse=.23+.77*Math.min(1,Math.exp(-(((beat-.18)/.075)**2))+.62*Math.exp(-(((beat-.36)/.10)**2)));
+      const awake=smooth((golemPhase()-.48)/.30);
+      for(let i=0;i<7;i++){
+        const angle=i*2.399,radius=i?1:0;
+        gradient(left+width*(.472+Math.cos(angle)*.019*radius),top+height*(.267+Math.sin(angle)*.013*radius),width*(i?.029:.049),height*(i?.025:.043),'155,3,26',pulse*awake*(i?.09:.23));
+      }
+    }
     for(const [u,v] of [[.325,.094],[.369,.081]]){
       gradient(left+u*width,top+v*height,height*.010,height*.007,'190,9,18',state.eyes*.46);
       gradient(left+u*width,top+v*height,height*.0024,height*.0019,'255,64,46',state.eyes*.9);

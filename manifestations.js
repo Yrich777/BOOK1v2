@@ -84,6 +84,19 @@ window.Manifestations = (() => {
         skin*=iron*smoothstep(.07,.22,dot(source.rgb,vec3(.21,.72,.07)));
         vec3 parchmentSkin=source.rgb*vec3(.92,.89,.72)+vec3(.015,.012,.0);
         color=mix(color,parchmentSkin,skin*.72);
+        // A buried heart lights the ragged cloth, with an uneven breathing edge.
+        vec2 chest=(p-vec2(.472,.267))/vec2(.057,.052);
+        float beat=fract(t/1.55);
+        float heartbeat=exp(-pow((beat-.18)/.075,2.))+.62*exp(-pow((beat-.36)/.10,2.));
+        float heartPulse=.23+.77*min(1.,heartbeat);
+        float fibres=fbm(p*vec2(95.,120.)+vec2(t*.035,-t*.025));
+        float ragged=length(chest)+(fibres-.5)*.65;
+        float heartCore=exp(-ragged*ragged*3.8);
+        float clothHalo=exp(-ragged*ragged*.95);
+        float heartAwake=smoothstep(.48,.78,reveal);
+        float cloth=1.-max(scrollHand,neck);
+        float transmission=.42+.58*smoothstep(.035,.36,dot(source.rgb,vec3(.21,.72,.07)));
+        color+=vec3(.62,.012,.055)*(heartCore*.55+clothHalo*.20)*heartPulse*heartAwake*cloth*transmission;
         float eyes=exp(-dot((p-vec2(.325,.094))/vec2(.006,.0035),(p-vec2(.325,.094))/vec2(.006,.0035)));
         eyes+=exp(-dot((p-vec2(.369,.081))/vec2(.006,.0035),(p-vec2(.369,.081))/vec2(.006,.0035)));
         float eyePulse=smoothstep(.66,.95,reveal)*(.54+.46*pow(.5+.5*sin(t*1.41+.55*sin(t*.51)),2.));
