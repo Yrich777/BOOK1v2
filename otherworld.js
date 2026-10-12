@@ -2,7 +2,6 @@
 // Illustration-space coordinates keep the apparition attached to the terrace.
 (() => {
   const button = document.querySelector('#world-toggle');
-  const status = document.querySelector('#world-status');
   const canvas = document.createElement('canvas');
   canvas.className = 'otherworld-canvas';
   canvas.setAttribute('aria-hidden', 'true');
@@ -26,15 +25,15 @@
     prologue: 'За порталом кто-то ждёт.',
     city: 'У города есть другие обитатели.',
     blade: 'Заклятие оставляет след даже в отражении.',
-    marble: 'Ветер приносит пепельный туман. Сквозь него смотрят красные глаза Бомбо.',
-    between: 'Стены перехода переливаются, словно грани иного мира.',
-    fates: 'В свете старого фонаря просыпается феникс.',
+    marble: '',
+    between: '',
+    fates: '',
     read: 'Иная Москва остаётся по ту сторону страниц.'
   };
   for (const [key, file] of Object.entries({golem:'golem-ash',golemsha:'golem-woman',djinn:'djinn-orb',phoenix:'phoenix-filaments'})) {
     const im = new Image();
     im.onload = () => {if(!window.Manifestations)materialization(im,0,key==='golem'?'ash':'smoke');render();};
-    im.onerror = () => { status.textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
+    im.onerror = () => { document.querySelector('#announcement').textContent = 'Образ не загрузился. Попробуйте обновить страницу.'; };
     im.src = `assets/${file}.webp`;
     images[key] = im;
   }
@@ -53,7 +52,6 @@
     waveOrigin = {x:w*.75,y:h*.3};
     const names={prologue:'hero',city:'city',blade:'dagger',marble:'marble',between:'rasta-interworld-tunnel',fates:'puzyr-courtyard'};
     if(names[next.id]&&!backgrounds[next.id]){const im=new Image();im.src=`assets/${names[next.id]}.webp`;backgrounds[next.id]=im;}
-    status.textContent = open ? messages[activeScene.id] : 'Увидеть то, что скрыто';
     render();
   }
   function still() { return query.matches || document.body.classList.contains('paused'); }
@@ -64,7 +62,6 @@
     button.setAttribute('aria-pressed', String(open));
     button.querySelector('.world-label').textContent = open ? 'Вернуться в привычный мир' : 'Увидеть Москву иную';
     document.body.classList.toggle('world-open', open);
-    status.textContent = open ? messages[activeScene.id] : 'Увидеть то, что скрыто';
     if (still()) progress = open ? encounterDuration() : 0;
     document.querySelector('#announcement').textContent = open ? `Москва иная открыта. ${messages[activeScene.id]}` : 'Вы вернулись в привычный мир.';
     render();

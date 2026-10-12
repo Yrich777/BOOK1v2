@@ -11,8 +11,6 @@
 .world-status{position:fixed;z-index:29;right:5.3%;top:108px;max-width:350px;margin:0;font:italic 15px/1.5 'Cormorant Garamond',Georgia,serif;color:#d5c9ddb3;text-align:right;pointer-events:none;text-shadow:0 2px 14px #000;transition:opacity .4s;opacity:.65}
 .world-open .world-status{opacity:1}
 .world-open .chapter-stamp{opacity:.15}
-body:has(.between.active,.mosaic.active) .world-toggle{position:fixed;left:calc(69% - 245px);top:70%;max-width:230px;text-align:left}
-body:has(.between.active,.mosaic.active) .world-status{left:calc(69% - 245px);right:auto;top:calc(70% + 58px);max-width:230px;text-align:left}
 .guide-avatar.living-portrait{position:relative;overflow:hidden;isolation:isolate;background-position:center}
 .living-portrait canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .living-portrait:after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 13px #03090945;pointer-events:none}
@@ -28,10 +26,6 @@ body:has(.between.active,.mosaic.active) .world-status{left:calc(69% - 245px);ri
  .mosaic .veil{background:linear-gradient(0deg,#07100e 12%,#07100eef 34%,#07100e22 66%,#07100e44)}
  .mosaic .character-caption{left:8%;right:auto;top:13%;width:40%;padding:8px 0 8px 10px;background:linear-gradient(90deg,#071210b3,transparent);backdrop-filter:none}
  .mosaic .character-caption strong{font-size:24px}.mosaic .character-caption p{font-size:11px;line-height:1.45}.mosaic .character-role{font-size:9px}
- body:has(.between.active) .world-toggle{left:8%;top:40.5%;max-width:170px}
- body:has(.between.active) .world-status{left:8%;right:auto;top:calc(40.5% + 54px);max-width:170px;font-size:12px}
- body:has(.mosaic.active) .world-toggle{left:8%;top:38%;max-width:170px}
- body:has(.mosaic.active) .world-status{display:none}
  .mosaic .copy{top:67.5%}
  header{top:26px;gap:14px}.header-actions{gap:9px}.world-toggle{padding:9px 10px;max-width:165px;gap:9px;font-size:10px;line-height:1.4;min-height:46px;text-align:left}.world-sigil{flex:0 0 18px;width:18px;height:18px;font-size:19px}.motion{padding:8px 2px;min-height:44px}.brand{letter-spacing:1.3px;gap:7px;font-size:8px}.brand small{font-size:5px;letter-spacing:1.7px}.sigil{font-size:26px}.world-status{top:88px;left:8%;right:8%;max-width:none;font-size:13px;line-height:1.3}
  .marble .backdrop{background-size:auto 62%;background-position:75% top;background-repeat:no-repeat}.marble .veil{background:linear-gradient(0deg,#07100e 14%,#07100ef2 37%,#07100e33 65%,#07100e66)}
@@ -48,7 +42,6 @@ body:has(.between.active,.mosaic.active) .world-status{left:calc(69% - 245px);ri
 @media(max-height:720px) and (max-width:600px){.marble .copy{top:61%}.marble h2{font-size:30px}.marble .guide-avatar{flex-basis:52px;width:52px;height:62px}.marble .guide-message p{font-size:16px}.marble .guide-message{margin:10px 0}.marble .intro{font-size:12px;margin:12px 0}.marble .eyebrow{margin-bottom:10px}.world-status{font-size:12px}}
 @media(max-height:740px) and (max-width:600px){.between .copy{top:68%}.between h2{font-size:30px}.between .intro{font-size:12px;margin:13px 0}.between .eyebrow{font-size:9px;margin-bottom:13px}.between .whisper{font-size:17px}.between .character-caption p{font-size:11px}.between .character-caption strong{font-size:22px}}
 @media(max-height:740px) and (max-width:600px){
- body:has(.finale.active) .world-status{opacity:0}
  .finale .book-object{top:19%;width:90px;height:126px;transform:translate(-50%,-30%) perspective(800px) rotateY(-17deg) rotateZ(-6deg)}
  .finale .cover{padding:11px 7px}.finale .cover-author{font-size:3px}.finale .cover-mark{font-size:23px;margin:6px 0 4px}.finale .cover-title{font-size:13px}.finale .cover-line{font-size:8px}
  .finale .copy{top:59%;transform:translateY(-45%)}.finale h2{font-size:32px}.finale .eyebrow{margin-bottom:10px}
@@ -57,3 +50,49 @@ body:has(.between.active,.mosaic.active) .world-status{left:calc(69% - 245px);ri
 }
 @media(prefers-reduced-motion:reduce){.world-toggle,.world-status{transition:none}}
 @media(max-height:740px) and (max-width:600px){.mosaic .character-caption p{display:none}.mosaic h2{font-size:31px}.mosaic .intro{font-size:12px}.mosaic .whisper{font-size:17px;margin-block:12px}.mosaic .eyebrow{font-size:9px;margin-bottom:12px}}
+
+/* Shared lower control lane, clear of the illustration and page navigation. */
+.world-controls{position:fixed;z-index:30;left:5.3%;bottom:104px}
+.world-controls .world-toggle{position:static;max-width:none;text-align:left}
+.hero .copy{top:auto;bottom:190px;transform:none}
+.hero .guide-caption{bottom:190px}
+.hero .scene-note{bottom:125px}
+@media(max-width:600px){
+ .world-controls{left:8%;bottom:78px;max-width:84%}
+ .world-controls .world-toggle{max-width:none;min-height:42px;font-size:10px;padding:9px 13px}
+ .hero .copy{top:auto;bottom:140px;width:84%;transform:none}
+ .hero h1{font-size:clamp(44px,13vw,66px);line-height:.9}
+ .hero h1>span{margin-left:28px}
+ .hero .eyebrow{font-size:8px;margin-bottom:10px}
+ .hero .fine-rule{margin:10px 0 8px}
+ .hero .book-title{font-size:23px}
+ .hero .intro{font-size:11px;line-height:1.6;margin:10px 0}
+ .hero .primary{padding:12px 16px;font-size:11px}
+ .hero .guide-caption{right:8%;bottom:auto;top:42%;gap:8px}
+ .hero .guide-caption p{font-size:18px}
+ .hero .guide-caption small{font-size:5px}
+}
+@media(max-height:740px) and (max-width:600px){
+ .hero .copy{bottom:132px}
+ .hero h1{font-size:44px}
+ .hero .eyebrow{margin-bottom:8px}
+ .hero .fine-rule{margin:8px 0 6px}
+ .hero .book-title{font-size:20px}
+ .hero .intro{font-size:10px;margin:8px 0}
+ .hero .guide-caption{top:40%}
+}
+@media(max-height:690px) and (min-width:601px){
+ .world-controls{bottom:82px}
+ .hero .copy{bottom:150px}
+ .hero .guide-caption{bottom:150px}
+ .hero .scene-note{display:none}
+}
+
+.hero .scene-note{top:auto}
+@media(max-width:600px){
+ .scene .copy,.scene .copy.centered{top:auto;bottom:140px;transform:none}
+ .hero .copy{bottom:140px}
+}
+@media(max-height:740px) and (max-width:600px){.scene .copy,.scene .copy.centered{bottom:132px}}
+
+@media(max-height:740px) and (max-width:600px){.hero .guide-caption{top:36%}}
