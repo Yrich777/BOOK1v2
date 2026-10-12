@@ -96,3 +96,60 @@
 @media(max-height:740px) and (max-width:600px){.scene .copy,.scene .copy.centered{bottom:132px}}
 
 @media(max-height:740px) and (max-width:600px){.hero .guide-caption{top:36%}}
+
+/* One text edge and a raised divider keep the world switch in the story flow. */
+body{--story-left:9.5%;--switch-bottom:124px;--switch-height:50px}
+body:has(.finale.active){--story-left:55%}
+.scene .copy,.scene .copy.centered{left:var(--story-left);top:auto;bottom:calc(var(--switch-bottom) + var(--switch-height) + 38px);transform:none;text-align:left}
+.world-controls{left:var(--story-left);bottom:var(--switch-bottom);max-width:calc(100% - var(--story-left) - 8%)}
+.world-controls:before{content:'';position:absolute;left:0;top:-19px;width:min(420px,100%);height:1px;background:linear-gradient(90deg,#d1b37588,#d1b37518)}
+.world-controls .world-toggle{--spark:#ffd574;--spark-core:#fff9d9;position:relative;min-height:var(--switch-height);padding:13px 20px;gap:13px;font-size:13px;line-height:1.4;letter-spacing:.7px;border-color:#d1b375a6;overflow:visible}
+.world-controls .world-toggle:after{content:'';position:absolute;width:7px;height:7px;border-radius:50%;background:var(--spark-core);box-shadow:0 0 5px 2px var(--spark),0 0 14px 5px var(--spark),0 0 26px 8px color-mix(in srgb,var(--spark) 45%,transparent);offset-path:inset(-1px);offset-distance:0%;animation:world-spark 4s linear infinite;pointer-events:none}
+.world-controls .world-toggle[aria-pressed=true]{--spark:#bd73ff;--spark-core:#f5deff;border-color:#b777f0;box-shadow:0 0 24px #a75bea26}
+.world-open .world-controls:before{background:linear-gradient(90deg,#b777f088,#b777f018)}
+.scene h2{font-size:clamp(42px,4.4vw,68px)}
+.scene .intro{font-size:15px;line-height:1.75;margin:20px 0}
+.scene .eyebrow{font-size:11px;margin-bottom:20px}
+.scene .whisper{font-size:22px;margin:18px 0 22px}
+.scene .text-link,.scene .primary{font-size:13px}
+.scene .text-link{border-bottom:0;padding-bottom:0}
+.finale .eyebrow{justify-content:flex-start}
+.finale .restart{margin-left:0}
+@keyframes world-spark{to{offset-distance:100%}}
+@media(max-width:900px){
+ body{--story-left:8%}
+ .scene h2{font-size:48px}
+}
+@media(max-width:600px){
+ body,body:has(.finale.active){--story-left:8%;--switch-bottom:98px;--switch-height:44px}
+ .scene .copy,.scene .copy.centered{width:84%;bottom:calc(var(--switch-bottom) + var(--switch-height) + 32px)}
+ .world-controls .world-toggle{font-size:11px;padding:10px 15px;letter-spacing:.4px}
+ .world-controls:before{top:-16px}
+ .scene h2{font-size:34px}
+ .scene .intro{font-size:12px;line-height:1.65;margin:13px 0}
+ .scene .eyebrow{font-size:9px;margin-bottom:12px}
+ .scene .whisper{font-size:18px;margin:12px 0 16px}
+ .scene .text-link,.scene .primary{font-size:11px}
+ .hero h1{font-size:clamp(44px,13vw,62px)}
+ .hero .intro{font-size:11px;margin:10px 0}
+ .finale .farewell{margin-left:0}
+ .finale .book-object{left:auto;right:8%;top:13%;transform:translateY(-10%) perspective(800px) rotateY(-17deg) rotateZ(-6deg)}
+ .finale .destination,.finale .restart{text-align:left;margin-left:0}
+}
+@media(max-height:740px) and (max-width:600px){
+ body,body:has(.finale.active){--switch-bottom:90px;--switch-height:42px}
+ .scene h2{font-size:30px}
+ .scene .eyebrow{font-size:8px;margin-bottom:10px}
+ .scene .intro{font-size:11px;margin:10px 0}
+ .scene .whisper{font-size:16px;margin:10px 0 12px}
+ .hero .book-title{font-size:20px}
+ .finale .book-object{width:72px;height:100px;top:15%}
+}
+@media(max-height:690px) and (min-width:601px){
+ body{--switch-bottom:92px;--switch-height:44px}
+ .scene h2{font-size:43px}
+ .scene .intro{font-size:13px;margin:14px 0}
+ .scene .eyebrow{margin-bottom:14px}
+ .scene .whisper{font-size:20px;margin:12px 0 16px}
+}
+@media(prefers-reduced-motion:reduce){.world-controls .world-toggle:after{animation:none;offset-distance:12%}}

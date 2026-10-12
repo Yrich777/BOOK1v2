@@ -102,7 +102,7 @@
       const clear=smooth((p-.4)/.6),remains=1-smooth((p-.88)/.12),started=smooth((p-.34)/.14);
       for(let i=0;i<data.field.length;i++){
         const distance=p*1.12-data.field[i];
-        const a=kind==='ash'?(1-(1-smooth((clear+data.field[i]-.05)/.91))*remains)*started:smooth(distance/.085);
+        const a=kind==='ash'?Math.sqrt(Math.max(0,1-(1-smooth((clear+data.field[i]-.05)/.91))*remains))*started:smooth(distance/.085);
         m[i*4]=m[i*4+1]=m[i*4+2]=255;m[i*4+3]=Math.round(a*255);
         e[i*4]=165;e[i*4+1]=148;e[i*4+2]=192;
         e[i*4+3]=Math.round(Math.max(0,1-Math.abs(distance-.022)/.048)*105*(1-smooth((p-.8)/.2)));
@@ -299,7 +299,7 @@
         const px=x+height*(1.25*(1-state.arrival)+Math.cos(a)*ring*.56+Math.sin(state.t*.65+i)*.024-state.clearing*(.12+(i%3)*.04));
         const py=foot-height*(.51+Math.sin(a)*ring*.64+state.clearing*.045);
         const size=height*(.30+(i%4)*.055)*(1+state.clearing*.28);
-        ctx.save();ctx.globalAlpha=fade*smooth(progress/.9)*.6;
+        ctx.save();ctx.globalAlpha=fade*smooth(progress/.9)*.68;
         ctx.drawImage(ashSprite(i%4),px-size*.65,py-size*.5,size*1.3,size);ctx.restore();
       }
     }

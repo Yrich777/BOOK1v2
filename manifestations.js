@@ -61,7 +61,7 @@ window.Manifestations = (() => {
         float thinning=smoothstep(.40,1.,reveal);
         vec3 ash=mix(vec3(.016,.018,.025),vec3(.11,.12,.14),thinning);
         vec3 color=mix(ash,vec3(.27,.28,.30),rim);
-        float alpha=coverage*clamp(.55+cloud*.72+folds*.18,0.,.98)*opacity;
+        float alpha=coverage*clamp(.63+cloud*.72+folds*.18,0.,.98)*opacity;
         alpha*=smoothstep(0.,.045,uv.x)*smoothstep(0.,.045,1.-uv.x);
         alpha*=smoothstep(0.,.045,uv.y)*smoothstep(0.,.045,1.-uv.y);
         gl_FragColor=vec4(color,alpha);return;
@@ -70,7 +70,9 @@ window.Manifestations = (() => {
         vec2 p=vec2(uv.x,1.-uv.y);
         vec2 body=vec2((p.x-.5)*.8003,p.y);
         vec4 source=texture2D(anatomy,uv);
-        float visible=(1.-ashCover(body,t,reveal))*smoothstep(.34,.48,reveal);
+        // The figure emerges through thinning mist, before the veil is gone.
+        // Avoid multiplying two faint dissolve masks into an invisible body.
+        float visible=sqrt(max(0.,1.-ashCover(body,t,reveal)))*smoothstep(.34,.48,reveal);
         vec3 color=source.rgb*vec3(.79,.82,.87)+vec3(.004,.005,.011);
         // Select exposed skin spatially, leaving the coat and rusty iron alone.
         float face=1.-smoothstep(.68,1.,length((p-vec2(.363,.105))/vec2(.075,.091)));

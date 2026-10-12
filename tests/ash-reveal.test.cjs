@@ -28,6 +28,18 @@ test('every part of the ash veil clears smoothly and completely',()=>{
  }
 });
 
+test('the golem becomes visible while substantial mist still surrounds it',()=>{
+ const expression=shader.match(/float visible=([^;]+);/)[1]
+  .replace('ashCover(body,t,reveal)','coverage');
+ const visible=new Function('coverage','reveal','sqrt','max','smoothstep',`return ${expression}`);
+ const coverage=mask(0,.5,.65);
+ const opacity=visible(coverage,.65,Math.sqrt,Math.max,smoothstep);
+ assert.ok(coverage>.5,'mist remains during the reveal');
+ assert.ok(opacity>.5,'the figure has emerged before the mist clears');
+ assert.equal(visible(1,.4,Math.sqrt,Math.max,smoothstep),0);
+ assert.equal(visible(0,1,Math.sqrt,Math.max,smoothstep),1);
+});
+
 test('parchment glow excludes the fingers and lights both exposed pieces',()=>{
  const code=fs.readFileSync(path.join(__dirname,'../otherworld.js'),'utf8');
  const polygons=JSON.parse(code.match(/const paper=(\[.*?\]);/)[1]);
